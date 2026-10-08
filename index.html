@@ -242,6 +242,8 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
     <select class="fc" style="width:150px" id="df-type" onchange="renderDocs()"><option value="">Барча турлар</option><option>Таътил</option><option>Расчет</option><option>Больничный</option></select>
     <select class="fc" style="width:190px" id="df-month" onchange="renderDocs()"><option value="">Барча ойлар</option></select>
+    <input class="fc" style="width:240px" id="df-q" placeholder="🔍 Корхона ёки ФИШ бўйича қидириш" oninput="renderDocs()">
+    <button class="btn btn-outline btn-sm" id="btn-exp-sel-docs" onclick="exportSelectedDocs()" disabled style="opacity:.5"><i class="ti ti-download"></i>Танланганларни юклаш</button>
     <button class="btn btn-danger btn-sm" id="btn-del-sel-docs" onclick="delSelectedDocs()" disabled style="opacity:.5"><i class="ti ti-trash"></i><span id="del-sel-docs-lbl">Танланганларни ўчириш</span></button>
     <button class="btn btn-outline btn-sm" onclick="delAllDocs()" title="Барча ҳужжатларни ўчириш" style="color:#dc2626;border-color:#fca5a5"><i class="ti ti-circle-x"></i>Барчасини ўчириш</button>
     <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openBulkImport()"><i class="ti ti-file-import"></i>Excel'дан импорт</button>
@@ -252,12 +254,15 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
 
 <!-- REPORT -->
 <div class="page" id="page-report">
-  <div class="card" style="margin-bottom:14px">
+  <div class="card" id="rep-filter" style="margin-bottom:14px;position:sticky;top:-20px;z-index:20;box-shadow:0 4px 12px rgba(15,23,42,.08)">
     <div class="card-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
       <div><div class="fl">Ой</div><select class="fc" id="rf-month" style="width:170px"><option value="">Барча</option></select></div>
       <div><div class="fl">Тур</div><select class="fc" id="rf-type" style="width:140px"><option value="">Барча</option><option>Таътил</option><option>Расчет</option><option>Больничный</option></select></div>
+      <div><div class="fl">Қидириш</div><input class="fc" id="rf-q" style="width:240px" placeholder="🔍 Корхона ёки ФИШ" oninput="buildReport()"></div>
       <button class="btn btn-primary" onclick="buildReport()"><i class="ti ti-filter"></i>Кўрсатиш</button>
-      <button class="btn btn-success" style="margin-left:auto" onclick="exportXlsx()"><i class="ti ti-download"></i>Excel юклаш</button>
+      <span id="rep-sel-info" style="font-size:12px;color:#64748b;align-self:center"></span>
+      <button class="btn btn-outline btn-sm" id="btn-rep-del" onclick="repDelSelected()" disabled style="margin-left:auto;opacity:.5;color:#dc2626;border-color:#fca5a5;align-self:center"><i class="ti ti-trash"></i>Танланганларни ўчириш</button>
+      <button class="btn btn-success" onclick="exportXlsx()"><i class="ti ti-download"></i><span id="rep-exp-lbl">Excel юклаш</span></button>
     </div>
   </div>
   <div class="card" id="rep-wrap"><div class="empty"><i class="ti ti-table"></i>Фильтрни танланг</div></div>
@@ -285,6 +290,10 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
   <div class="card" style="max-width:700px;margin:0 auto 16px">
     <div class="card-header"><span class="card-title"><i class="ti ti-calendar-stats" style="margin-right:8px;color:#16a34a"></i>Табел тарихи ҳолати — қайси ойгача юкланган</span></div>
     <div class="card-body" id="tabel-coverage"></div>
+  </div>
+  <div class="card" id="danger-card" style="display:none">
+    <div class="card-header"><span class="card-title" style="color:#b91c1c"><i class="ti ti-alert-triangle" style="margin-right:8px"></i>Маълумотни ўчириш</span></div>
+    <div class="card-body" id="danger-zone-local"></div>
   </div>
   <div class="card" style="max-width:700px;margin:0 auto">
     <div class="card-header">
@@ -331,7 +340,7 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
       <div class="alert alert-info"><i class="ti ti-info-circle" style="flex-shrink:0;margin-top:2px"></i>
         <div>
           <b>Taatil_spravka</b> файли — ҳар бир ходимнинг жорий иш бошланиш санаси ва аввал олган таётил кунлари.<br>
-          <span style="font-size:12px">"Расчет" ҳужжати яратилганда бу маълумот автоматик ишлатилади: аввал олган таётил кунлари ва ишдан бўшашда компенсация куни ўзи ҳисобланади.</span>
+          <span style="font-size:12px">"Расчет" ҳужжати киритилганда бу маълумот автоматик ишлатилади: аввал олган таётил кунлари ва ишдан бўшашда компенсация куни ўзи ҳисобланади.</span>
         </div>
       </div>
       <div id="taatil-progress" style="display:none;margin-bottom:12px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;text-align:center">
@@ -416,7 +425,7 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
 <div class="overlay" id="m-doc">
 <div class="modal">
   <div class="mhead">
-    <span class="mtitle">Янги ҳужжат яратиш</span>
+    <span class="mtitle">Янги ҳужжат киритиш</span>
     <button class="btn btn-outline btn-sm" onclick="CM('m-doc')"><i class="ti ti-x"></i></button>
   </div>
   <div class="mbody">
@@ -544,7 +553,7 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
 <div class="overlay" id="m-bulkimp">
 <div class="modal" style="width:1000px">
   <div class="mhead">
-    <span class="mtitle"><i class="ti ti-file-import" style="margin-right:6px;color:#1a56db"></i>Excel орқали ҳужжатларни оммавий яратиш</span>
+    <span class="mtitle"><i class="ti ti-file-import" style="margin-right:6px;color:#1a56db"></i>Excel орқали ҳужжатларни оммавий киритиш</span>
     <button class="btn btn-outline btn-sm" onclick="CM('m-bulkimp')"><i class="ti ti-x"></i></button>
   </div>
   <div class="mbody">
@@ -702,7 +711,7 @@ var Store=(function(){
     for(var id in cur) if(cur[id]!==docBase[id]) up.push({id:Number(id), data:JSON.parse(cur[id]), updated_at:new Date().toISOString()});
     for(var id2 in docBase) if(!(id2 in cur)) del.push(Number(id2));
     for(var i=0;i<up.length;i+=50) await q(sb.from('documents').upsert(up.slice(i,i+50)));
-    if(del.length) await q(sb.from('documents').delete().in('id',del));
+    for(var j=0;j<del.length;j+=200) await q(sb.from('documents').delete().in('id',del.slice(j,j+200)));
     docBase=cur;
     if(up.length||del.length){ docVer=token(); await q(sb.from('meta').upsert({name:'documents', version:docVer, updated_at:new Date().toISOString()})); }
   }
@@ -793,7 +802,8 @@ async function renderComments(id){
 
 // ====== Журнал (фақат эга) ======
 var _auditRows=[];
-var AU_ICON={'яратди':'#16a34a','ўзгартирди':'#1a56db','ўчирди':'#dc2626','изоҳ ёзди':'#7c3aed','изоҳни ўчирди':'#dc2626','рухсат берди':'#0891b2','рухсатни ўзгартирди':'#0891b2','рухсатни олди':'#dc2626','маълумотни янгилади':'#64748b'};
+var AU_ICON={'киритди':'#16a34a','яратди':'#16a34a','ўзгартирди':'#1a56db','ўчирди':'#dc2626','изоҳ ёзди':'#7c3aed','изоҳни ўчирди':'#dc2626','рухсат берди':'#0891b2','рухсатни ўзгартирди':'#0891b2','рухсатни олди':'#dc2626','маълумотни янгилади':'#64748b'};
+function auAct(a){ return a==='яратди'?'киритди':a; }
 var DS_LBL={employees:'Ходимлар', tabel:'Табел тарихи', taatilSpravka:'Taatil spravka'};
 async function renderAudit(){
   var w=document.getElementById('audit-wrap'); if(!w) return;
@@ -819,7 +829,7 @@ function auditDetail(r){
 function renderAuditRows(){
   var w=document.getElementById('audit-wrap'); if(!w) return;
   var qv=(document.getElementById('au-q')||{}).value; qv=String(qv||'').toLowerCase().trim();
-  var rows=_auditRows.filter(function(r){ if(!qv) return true; return (memberName(r.actor)+' '+r.actor+' '+r.action+' '+auditDetail(r)).toLowerCase().indexOf(qv)>=0; });
+  var rows=_auditRows.filter(function(r){ if(!qv) return true; return (memberName(r.actor)+' '+r.actor+' '+auAct(r.action)+' '+auditDetail(r)).toLowerCase().indexOf(qv)>=0; });
   if(!rows.length){ w.innerHTML='<div class="empty"><i class="ti ti-history"></i>Ёзув йўқ</div>'; return; }
   var tbl=document.createElement('table');
   tbl.innerHTML='<thead><tr><th>Вақт</th><th>Ким</th><th>Амал</th><th>Тафсилот</th></tr></thead>';
@@ -828,13 +838,16 @@ function renderAuditRows(){
     var tr=document.createElement('tr');
     var a=document.createElement('td'); a.style.whiteSpace='nowrap'; a.style.fontSize='12px'; a.textContent=new Date(r.at).toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}); tr.appendChild(a);
     var b=document.createElement('td'); b.style.fontSize='12px'; b.textContent=memberName(r.actor); b.title=r.actor||''; tr.appendChild(b);
-    var c2=document.createElement('td'); var sp=document.createElement('span'); sp.className='badge'; sp.style.background='#f1f5f9'; sp.style.color=AU_ICON[r.action]||'#334155'; sp.textContent=r.action; c2.appendChild(sp); tr.appendChild(c2);
+    var c2=document.createElement('td'); var sp=document.createElement('span'); sp.className='badge'; sp.style.background='#f1f5f9'; sp.style.color=AU_ICON[r.action]||'#334155'; sp.textContent=auAct(r.action); c2.appendChild(sp); tr.appendChild(c2);
     var d=document.createElement('td'); d.style.fontSize='12px'; d.textContent=auditDetail(r); tr.appendChild(d);
     tb.appendChild(tr);
   });
   tbl.appendChild(tb); w.innerHTML=''; w.appendChild(tbl);
 }
 
+// ====== Барча маълумотни ўчиришда изоҳлар ҳам ўчади (журнал ва рухсатлар қолади) ======
+window.WIPE_EXTRA_LABEL=', ҳужжат изоҳлари (Ҳаракатлар журнали ва рухсатлар сақланади)';
+window.WIPE_EXTRA=async function(){ if(ME.role!=='owner') throw new Error('фақат эга'); await q(sb.from('comments').delete().gt('id',0)); };
 // ====== Рухсатлар (фақат эга) ======
 async function renderAccess(){
   var w=document.getElementById('access-wrap'); if(!w) return;
@@ -849,8 +862,10 @@ async function renderAccess(){
     '<div class="fg"><button class="btn btn-primary" id="ac-add">Қўшиш</button></div></div>'+
     '<table><thead><tr><th>Gmail</th><th>Исм</th><th>Ҳуқуқ</th><th></th></tr></thead><tbody id="ac-rows"></tbody></table>'+
     '<div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0"><div class="stitle">Созламалар (фақат сизга)</div>'+
-    '<div class="fg" style="max-width:360px"><label class="fl" for="ac-cmode">Ҳужжатлар рўйхатида "Яратилди" устуни</label><select class="fc" id="ac-cmode">'+
-    '<option value="hidden">Кўрсатилмасин</option><option value="date">Сана (кун, ой, йил)</option><option value="datetime">Сана ва вақт (соат:дақиқа)</option></select></div></div>';
+    '<div class="fg" style="max-width:360px"><label class="fl" for="ac-cmode">Ҳужжатлар рўйхатида "Киритилди" устуни</label><select class="fc" id="ac-cmode">'+
+    '<option value="hidden">Кўрсатилмасин</option><option value="date">Сана (кун, ой, йил)</option><option value="datetime">Сана ва вақт (соат:дақиқа)</option></select></div></div>'+
+    '<div style="margin-top:18px;padding:14px;border:1px solid #fecaca;border-radius:10px;background:#fffafa"><div class="stitle" style="color:#b91c1c">Маълумотни ўчириш (Ҳаракатлар журнали сақланади)</div><div id="danger-zone"></div></div>';
+  renderDangerZone(document.getElementById('danger-zone'));
   var cm=document.getElementById('ac-cmode'); cm.value=lsGet('hr_created_mode')||'date'; cm.onchange=function(){ lsSet('hr_created_mode',cm.value); };
   var tb=document.getElementById('ac-rows');
   rows.forEach(function(r){
@@ -888,7 +903,7 @@ function saveDB(){
 // ====== HELPERS ======
 function uiConfirmCompat(msg){ return (typeof uiConfirm==='function')?uiConfirm(msg):Promise.resolve(confirm(msg)); }
 function escHtml(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(ch){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];}); }
-// Сервер нусхаси бу илгакларни алмаштиради (муаллиф исми, "Яратилди" устуни кўриниши)
+// Сервер нусхаси бу илгакларни алмаштиради (муаллиф исми, "Киритилди" устуни кўриниши)
 var DOC_HOOKS=window.DOC_HOOKS||{author:function(d){return d.createdBy||'';},createdMode:function(){return 'date';}};
 function fmtCreated(iso,mode){ if(!iso) return '—'; var d=new Date(iso); if(isNaN(d)) return '—';
   return mode==='datetime'?d.toLocaleString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):d.toLocaleDateString('ru-RU'); }
@@ -957,6 +972,37 @@ function normalizeMonthKey(v){
   var d=new Date(s);
   if(!isNaN(d.getTime()))return d.getFullYear()+'-'+(d.getMonth()+1);
   return s;
+}
+function docMatchesQuery(d,q){
+  q=String(q||'').toLowerCase().trim(); if(!q) return true;
+  var hay=(String(d.fish||'')+' '+String(d.company||'')).toLowerCase();
+  return q.split(/\s+/).every(function(w){ return hay.indexOf(w)>=0; });
+}
+// Белгилаш катагини босиб сичқончани тортганда йўлдаги барча қаторлар белгиланади
+function enableDragSelect(wrapId, sel, onChange){
+  var wrap=document.getElementById(wrapId); if(!wrap||wrap._dragSel) return; wrap._dragSel=true;
+  var on=false, val=false, last=null;
+  function list(){ return [].slice.call(wrap.querySelectorAll(sel)); }
+  function setRange(a,b){ var l=list(), i=l.indexOf(a), j=l.indexOf(b); if(i<0||j<0){ b.checked=val; return; }
+    for(var k=Math.min(i,j);k<=Math.max(i,j);k++) l[k].checked=val; }
+  wrap.addEventListener('mousedown',function(e){
+    if(e.button!==0||!e.target.matches||!e.target.matches(sel)) return;
+    e.preventDefault();
+    var c=e.target; val=!c.checked;
+    if(e.shiftKey&&last&&last.isConnected) setRange(last,c); else c.checked=val;
+    last=c; on=true; onChange();
+  });
+  wrap.addEventListener('mouseover',function(e){
+    if(!on) return;
+    var tr=e.target.closest&&e.target.closest('tr'); var c=tr&&tr.querySelector(sel); if(!c||c===last) return;
+    setRange(last&&last.isConnected?last:c,c); last=c; onChange();
+  });
+  document.addEventListener('mouseup',function(){ on=false; });
+  wrap.addEventListener('click',function(e){
+    if(!e.target.matches||!e.target.matches(sel)) return;
+    if(e.detail===0){ last=e.target; setTimeout(onChange,0); return; } // клавиатура (Space)
+    e.preventDefault(); // сичқонча ҳолатини mousedown'да ўрнатдик
+  });
 }
 function monthSortValue(v){
   var mk=normalizeMonthKey(v);
@@ -1195,7 +1241,57 @@ function renderTabelCoverage(){
     '</tbody></table></div>'+
     '<div style="font-size:11px;color:#94a3b8;margin-top:6px">⚠ — бу корхона учун охирги ой ҳали юкланмаган.</div>';
 }
+// ====== Маълумотни ўчириш (тарихни ойдан кейин қирқиш / ҳаммасини ўчириш) ======
+function renderDangerZone(el){
+  if(!el) return;
+  var keep=(document.getElementById('dz-month')||{}).value||'';
+  var ms={}; (DB.tabel||[]).forEach(function(t){ var mk=normalizeMonthKey(t.month); if(monthSortValue(mk)>=0) ms[mk]=(ms[mk]||0)+1; });
+  var keys=Object.keys(ms).sort(function(a,b){return monthSortValue(b)-monthSortValue(a);});
+  el.innerHTML='<div style="font-size:13px;margin-bottom:8px"><b>Маълум ойдан кейинги тарихни ўчириш.</b> Танланган ой ва ундан олдинги ойлар қолади, кейинги ойларнинг табел ва маош маълумоти ўчирилади.</div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px">'+
+      '<span style="font-size:13px">Шу ойгача қолсин (шу ой ҳам):</span>'+
+      '<select class="fc" id="dz-month" style="width:200px">'+(keys.length?keys.map(function(k){return '<option value="'+k+'">'+monthTitle(k)+' ('+ms[k]+')</option>';}).join(''):'<option value="">Табел йўқ</option>')+'</select>'+
+      '<button class="btn btn-outline btn-sm" style="color:#dc2626;border-color:#fca5a5" onclick="trimTabelAfter(document.getElementById(\'dz-month\').value)"'+(keys.length>1?'':' disabled')+'><i class="ti ti-scissors"></i>Кейинги ойларни ўчириш</button>'+
+    '</div>'+
+    '<div style="border-top:1px solid #fee2e2;padding-top:12px;display:flex;gap:10px;flex-wrap:wrap;align-items:center">'+
+      '<div style="font-size:13px;flex:1;min-width:240px"><b>Барча маълумотни ўчириш</b> — ходимлар, табел тарихи, Taatil spravka, ҳужжатлар'+(window.WIPE_EXTRA_LABEL||'')+'. Икки марта тасдиқ сўралади.</div>'+
+      '<button class="btn btn-danger btn-sm" onclick="wipeAllData()"><i class="ti ti-trash-x"></i>Ҳаммасини ўчириш</button>'+
+    '</div>';
+  var sel=document.getElementById('dz-month'); if(keep&&ms[keep]) sel.value=keep;
+}
+async function trimTabelAfter(mk){
+  var cut=monthSortValue(mk); if(cut<0) return;
+  var drop=DB.tabel.filter(function(t){ return monthSortValue(t.month)>cut; });
+  if(!drop.length) return alert(monthTitle(mk)+'дан кейинги ойлар учун табел йўқ.');
+  var dm={}; drop.forEach(function(t){ var k=normalizeMonthKey(t.month); dm[k]=(dm[k]||0)+1; });
+  var list=Object.keys(dm).sort(function(a,b){return monthSortValue(a)-monthSortValue(b);}).map(function(k){return monthTitle(k)+' — '+dm[k]+' қатор';}).join('\n');
+  if(!(await uiConfirmCompat(monthTitle(mk)+' ва ундан олдинги ойлар қолади.\n\nҚуйидаги ойларнинг табел/маош маълумоти ўчирилади:\n'+list+'\n\nДавом этасизми?'))) return;
+  if(typeof _tIdx!=='undefined') _tIdx.ref=null;
+  var had=new Set(DB.employees.filter(function(e){ return tabelRowsFor(e).length>0; }));
+  DB.tabel=DB.tabel.filter(function(t){ return monthSortValue(t.month)<=cut; });
+  if(typeof _tIdx!=='undefined') _tIdx.ref=null;
+  // Фақат ўчирилган ойларда пайдо бўлган ходимлар (ҳужжати ҳам йўқ)
+  var orphan=DB.employees.filter(function(e){ return had.has(e)&&!tabelRowsFor(e).length&&!DB.documents.some(function(d){ return normName(d.fish)===normName(e.name); }); });
+  if(orphan.length&&await uiConfirmCompat('Фақат ўчирилган ойларда бўлган '+orphan.length+' та ходим ҳам бор (бошқа ойда табели ва ҳужжати йўқ):\n'+orphan.slice(0,15).map(function(e){return e.name;}).join('\n')+(orphan.length>15?'\n…':'')+'\n\nУлар ходимлар рўйхатидан ҳам ўчирилсинми?')){
+    var os=new Set(orphan); DB.employees=DB.employees.filter(function(e){ return !os.has(e); });
+  }
+  saveDB(); refreshAfterWipe();
+  alert('✅ '+monthTitle(mk)+'дан кейинги '+drop.length+' та табел қатори ўчирилди.');
+}
+async function wipeAllData(){
+  var n='Ходимлар: '+DB.employees.length+'\nТабел қаторлари: '+DB.tabel.length+'\nTaatil spravka: '+DB.taatilSpravka.length+'\nҲужжатлар: '+DB.documents.length;
+  if(!(await uiConfirmCompat('⚠ ДИҚҚАТ! Дастурдаги БАРЧА маълумот ўчирилади:\n\n'+n+(window.WIPE_EXTRA_LABEL?'\n'+window.WIPE_EXTRA_LABEL.replace(/^,\s*/,''):'')+'\n\nДавом этасизми?'))) return;
+  if(!(await uiConfirmCompat('ОХИРГИ ТАСДИҚ: бу амални ортга қайтариб бўлмайди.\n\nҲақиқатан ҳам ҲАММАСИНИ ўчирайликми?'))) return;
+  DB.employees=[]; DB.tabel=[]; DB.taatilSpravka=[]; DB.documents=[];
+  if(typeof window.WIPE_EXTRA==='function'){ try{ await window.WIPE_EXTRA(); }catch(e){ alert('Қўшимча маълумотни ўчиришда хато: '+((e&&e.message)||e)); } }
+  saveDB(); refreshAfterWipe();
+  alert('✅ Барча маълумот ўчирилди.');
+}
+function refreshAfterWipe(){
+  try{ if(typeof _tIdx!=='undefined') _tIdx.ref=null; renderDash(); renderEmps(); fillDocMonths(); renderDocs(); fillRepMonths(); buildReport(); }catch(e){}
+}
 function updateStats(){
+  try{ renderDangerZone(document.getElementById('danger-zone')); }catch(e){}
   document.getElementById('s-emp').textContent=DB.employees.length;
   document.getElementById('s-docs').textContent=DB.documents.length;
   var now=new Date(),mo=now.getMonth(),yr=now.getFullYear();
@@ -1794,7 +1890,7 @@ function saveDoc(){
   };
   var noteTxt=(DF.note||'').trim(); if(noteTxt) docObj.note=noteTxt;
   if(DF.editDocId){
-    // Таҳрирлашда яратилган вақт ва муаллиф сақланади
+    // Таҳрирлашда киритилган вақт ва муаллиф сақланади
     var old=DB.documents.find(function(x){return x.id===DF.editDocId;});
     if(old){ if(old.createdAt) docObj.createdAt=old.createdAt; if(old.createdBy) docObj.createdBy=old.createdBy; docObj.updatedAt=new Date().toISOString(); }
     // Таҳрирлаш — эскисини алмаштирамiz
@@ -2118,7 +2214,7 @@ function onBulkCompChange(i,val){
 function saveBulkImport(){
   var toSave=_bulkRows.filter(function(r){return r.include&&!r.error&&r.emp&&r.compIdx!==null&&r.calc;});
   if(!toSave.length){alert('Сақлаш учун ҳужжат танланмаган!');return;}
-  if(!confirm(toSave.length+' та ҳужжат яратилсинми?'))return;
+  if(!confirm(toSave.length+' та ҳужжат киритилсинми?'))return;
   toSave.forEach(function(item,k){
     var e=item.emp,c=item.calc,r=item.row;
     var mo=parseDate(c.startDate)||new Date();
@@ -2138,7 +2234,7 @@ function saveBulkImport(){
   });
   saveDB();
   CM('m-bulkimp');
-  alert(toSave.length+' та ҳужжат муваффақиятли яратилди!');
+  alert(toSave.length+' та ҳужжат муваффақиятли киритилди!');
   renderDash();P('documents');
 }
 
@@ -2168,6 +2264,12 @@ function toggleAllDocs(checked){
   document.querySelectorAll('.doc-chk').forEach(function(c){ c.checked = checked; });
   updateDocSelCount();
 }
+function selectedDocIds(){ return [...document.querySelectorAll('.doc-chk:checked')].map(function(c){ return parseInt(c.value); }); }
+function exportSelectedDocs(){
+  var ids=selectedDocIds(); if(!ids.length) return;
+  var docs=DB.documents.filter(function(d){ return ids.includes(d.id); });
+  exportXlsx(docs);
+}
 
 function updateDocSelCount(){
   var n = document.querySelectorAll('.doc-chk:checked').length;
@@ -2175,6 +2277,9 @@ function updateDocSelCount(){
   var lbl = document.getElementById('del-sel-docs-lbl');
   if (lbl) lbl.textContent = n > 0 ? 'Танланганларни ўчириш (' + n + ')' : 'Танланганларни ўчириш';
   if (btn) { btn.disabled = n === 0; btn.style.opacity = n === 0 ? '.5' : '1'; }
+  var eb = document.getElementById('btn-exp-sel-docs');
+  if (eb) { eb.disabled = n === 0; eb.style.opacity = n === 0 ? '.5' : '1'; eb.lastChild.textContent = n > 0 ? 'Танланганларни юклаш (' + n + ')' : 'Танланганларни юклаш'; }
+  document.querySelectorAll('.doc-chk').forEach(function(c){ var tr=c.closest('tr'); if(tr) tr.style.background=c.checked?'#eff6ff':''; });
 }
 
 function delSelectedDocs(){
@@ -2197,17 +2302,19 @@ function delAllDocs(){
 function renderDocs(){
   var tf=document.getElementById('df-type')?.value||'';
   var mf=document.getElementById('df-month')?.value||'';
-  var docs=DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf));
+  var dq=document.getElementById('df-q')?.value||'';
+  var docs=DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf)&&docMatchesQuery(d,dq));
+  updateDocSelCount();
   var el=document.getElementById('docs-wrap');
   if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-file-off"></i>Ҳужжат йўқ</div>';return;}
   var cMode=DOC_HOOKS.createdMode(), showAuthor=docs.some(function(d){return !!DOC_HOOKS.author(d);});
   el.innerHTML='<table><thead><tr>'+
     '<th style="width:36px"><input type="checkbox" id="chk-all-docs" onchange="toggleAllDocs(this.checked)" title="Барчасини белгилаш"></th>'+
     '<th style="width:40px">№</th>'+
-    '<th>ФИО</th><th>Корхона</th><th>Тур</th><th>Сана</th><th class="text-right">Иш куни</th><th class="text-right">Жами (б.)</th><th class="text-right">Итого</th>'+(showAuthor?'<th>Яратди</th>':'')+(cMode!=='hidden'?'<th>Яратилди</th>':'')+'<th></th></tr></thead><tbody>'+
+    '<th>ФИО</th><th>Корхона</th><th>Тур</th><th>Сана</th><th class="text-right">Иш куни</th><th class="text-right">Жами (б.)</th><th class="text-right">Итого</th>'+(showAuthor?'<th>Киритди</th>':'')+(cMode!=='hidden'?'<th>Киритилди</th>':'')+'<th></th></tr></thead><tbody>'+
     docs.map(function(d, i){
       return '<tr>'+
-        '<td><input type="checkbox" class="doc-chk" value="'+d.id+'" onchange="updateDocSelCount()"></td>'+
+        '<td><input type="checkbox" class="doc-chk" value="'+d.id+'" title="Белгилаш (сичқончани босиб пастга/юқорига тортиш мумкин)"></td>'+
         '<td style="color:#94a3b8">'+(i+1)+'</td>'+
         '<td style="font-weight:500">'+d.fish+'</td>'+
         '<td style="font-size:12px">'+d.company+'</td>'+
@@ -2268,7 +2375,7 @@ function _viewDocResultBase(id){
     '<div class="crow total"><span class="cl">ИТОГО К ОПЛАТЕ</span><span class="cv num">'+fN(d.itogo||0)+' сўм</span></div>'+
     '</div>'+
     (d.note?'<div class="alert alert-info" style="margin-top:12px;white-space:pre-wrap"><div><b>Изоҳ:</b> '+escHtml(d.note)+'</div></div>':'')+
-    ((DOC_HOOKS.author(d))?'<div style="font-size:12px;color:#64748b;margin-top:8px">Яратди: <b>'+escHtml(DOC_HOOKS.author(d))+'</b></div>':'');
+    ((DOC_HOOKS.author(d))?'<div style="font-size:12px;color:#64748b;margin-top:8px">Киритди: <b>'+escHtml(DOC_HOOKS.author(d))+'</b></div>':'');
   document.getElementById('doc-result-body').innerHTML=html2;
   document.getElementById('m-doc-result').classList.add('open');
 }
@@ -2309,17 +2416,20 @@ function fillRepMonths(){
   s.innerHTML='<option value="">Барча</option>'+ms.map(m=>'<option>'+m+'</option>').join('');
 }
 var _repDocs=[]; // Joriy ko'rsatilgan hujjatlar
+document.addEventListener('DOMContentLoaded',function(){ enableDragSelect('rep-wrap','.rep-chk',repSelChanged); enableDragSelect('docs-wrap','.doc-chk',updateDocSelCount); });
+setTimeout(function(){ enableDragSelect('rep-wrap','.rep-chk',repSelChanged); enableDragSelect('docs-wrap','.doc-chk',updateDocSelCount); },0);
 
 function buildReport(){
   var mt=document.getElementById('rf-month').value;
   var tp=document.getElementById('rf-type').value;
-  var docs=DB.documents.filter(d=>(!mt||d.month===mt)&&(!tp||d.type===tp));
+  var rq=document.getElementById('rf-q')?.value||'';
+  var docs=DB.documents.filter(d=>(!mt||d.month===mt)&&(!tp||d.type===tp)&&docMatchesQuery(d,rq));
   _repDocs=docs;
   var el=document.getElementById('rep-wrap');
-  if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-table"></i>Маълумот топилмади</div>';return;}
+  if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-table"></i>Маълумот топилмади</div>';repSelChanged();return;}
   var tot=docs.reduce((s,d)=>s+d.itogo,0);
   el.innerHTML='<div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:12px;color:#64748b">'+
-      '💡 Excel га юклаш учун керакли қаторларни белгиланг (белгиланмаса — барчаси юкланади). Сичқонча билан устма-уст юргизиб бир нечтасини танлаш мумкин.'+
+      '💡 Excel га юклаш учун керакли қаторларни белгиланг (белгиланмаса — барчаси юкланади). Белгилаш катагини сичқонча билан босиб, пастга ёки юқорига тортсангиз — йўлдаги барча қаторлар белгиланади (Shift+босиш ҳам ишлайди).'+
     '</div>'+
     '<table><thead><tr>'+
     '<th style="width:36px"><input type="checkbox" id="rep-chk-all" onchange="repToggleAll(this.checked)"></th>'+
@@ -2328,7 +2438,7 @@ function buildReport(){
     '<th class="text-right">Жами (б.)</th><th class="text-right">Премия</th><th class="text-right">Итого</th></tr></thead><tbody>'+
     docs.map(function(d,i){
       return '<tr class="rep-row" data-idx="'+i+'">'+
-        '<td><input type="checkbox" class="rep-chk" value="'+i+'" onclick="repChkClick(event,'+i+')"></td>'+
+        '<td><input type="checkbox" class="rep-chk" value="'+i+'"></td>'+
         '<td style="color:#94a3b8">'+(i+1)+'</td>'+
         '<td style="font-weight:500">'+d.fish+'</td>'+
         '<td style="font-size:12px">'+d.company+'</td>'+
@@ -2342,11 +2452,28 @@ function buildReport(){
     }).join('')+
   '</tbody><tfoot><tr><td colspan="10" style="text-align:right">ЖАМИ ИТОГО:</td><td class="text-right num" style="font-size:15px">'+fN(tot)+' сўм</td></tr></tfoot></table>';
   _repLastChecked=null;
+  repSelChanged();
 }
 
 // Барчасини белгилаш
 function repToggleAll(checked){
-  document.querySelectorAll('.rep-chk').forEach(function(c){c.checked=checked;c.closest('tr').style.background=checked?'#eff6ff':'';});
+  document.querySelectorAll('.rep-chk').forEach(function(c){c.checked=checked;});
+  repSelChanged();
+}
+function repSelChanged(){
+  var cs=document.querySelectorAll('.rep-chk'), n=0, sum=0;
+  cs.forEach(function(c){ var tr=c.closest('tr'); if(tr) tr.style.background=c.checked?'#eff6ff':''; if(c.checked){ n++; var d=_repDocs[parseInt(c.value)]; if(d) sum+=d.itogo||0; } });
+  var info=document.getElementById('rep-sel-info'); if(info) info.innerHTML=n?('Танланди: <b>'+n+'</b> та, итого <b>'+fN(sum)+'</b>'):'';
+  var lbl=document.getElementById('rep-exp-lbl'); if(lbl) lbl.textContent=n?('Excel юклаш ('+n+')'):'Excel юклаш';
+  var b=document.getElementById('btn-rep-del'); if(b){ b.disabled=!n; b.style.opacity=n?'1':'.5'; }
+  var all=document.getElementById('rep-chk-all'); if(all) all.checked=!!n&&n===cs.length;
+}
+async function repDelSelected(){
+  var ids=[]; document.querySelectorAll('.rep-chk:checked').forEach(function(c){ var d=_repDocs[parseInt(c.value)]; if(d) ids.push(d.id); });
+  if(!ids.length) return;
+  if(!(await uiConfirmCompat(ids.length+' та ҳужжатни ўчиришни тасдиқлайсизми?'))) return;
+  DB.documents=DB.documents.filter(function(d){ return !ids.includes(d.id); });
+  saveDB(); buildReport();
 }
 // Shift bilan diapazon tanlash (sichqoncha yugurtirish o'rniga)
 var _repLastChecked=null;
@@ -2361,11 +2488,12 @@ function repChkClick(ev,idx){
   }
   _repLastChecked=idx;
 }
-function exportXlsx(){
+function exportXlsx(docsOverride){
   // Агар қаторлар белгиланган бўлса — фақат уларни, акс ҳолда барчасини
   var docs;
   var checked=document.querySelectorAll('.rep-chk:checked');
-  if(checked.length){
+  if(Array.isArray(docsOverride)&&docsOverride.length){ docs=docsOverride; checked=docsOverride; }
+  else if(checked.length){
     docs=[];
     checked.forEach(function(c){var idx=parseInt(c.value);if(_repDocs[idx])docs.push(_repDocs[idx]);});
   } else {
@@ -3096,7 +3224,7 @@ function _doTaatilImport(){
   hideTaatilPreview();
   var st=document.getElementById('taatil-status');
   if(st) st.innerHTML = '<span style="color:#16a34a"><i class="ti ti-check"></i> '+DB.taatilSpravka.length+' та ёзув сақланди ('+new Date().toLocaleString('ru-RU')+')</span>';
-  alert('✅ Taatil spravka маълумоти сақланди!\n\n'+DB.taatilSpravka.length+' та ёзув. Энди "Расчет" ҳужжати яратганда аввал олган таётил кунлари ва компенсация куни автоматик ҳисобланади.');
+  alert('✅ Taatil spravka маълумоти сақланди!\n\n'+DB.taatilSpravka.length+' та ёзув. Энди "Расчет" ҳужжати киритганда аввал олган таётил кунлари ва компенсация куни автоматик ҳисобланади.');
 }
 
 // Ходим (ФИО) + корхона бўйича Taatil spravka ёзувини топади (нормаллаштирилган мослик)
