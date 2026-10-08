@@ -614,16 +614,16 @@ var Store=(function(){
     return out.map(function(c){ return JSON.stringify(c); });
   }
   async function loadDS(ds){
-    for(var a=0;a<4;a++){
+    for(var a=0;a<5;a++){
       var m=await q(sb.from('meta').select('*').eq('name',ds).maybeSingle());
       if(!m) return {version:null, items:[], chunks:[]};
-      var rows=await q(sb.from('datasets').select('chunk,version,items').eq('name',ds).lt('chunk',m.chunks).order('chunk'));
+      var rows=await q(sb.from('datasets').select('chunk,items').eq('name',ds).eq('version',m.version).order('chunk'));
       var ok=rows.length===m.chunks, items=[], strs=[];
-      rows.forEach(function(r,i){ if(r.chunk!==i||r.version!==m.version) ok=false; var s=JSON.stringify(r.items||[]); strs.push(s); items=items.concat(JSON.parse(s)); });
+      rows.forEach(function(r,i){ if(r.chunk!==i) ok=false; var s=JSON.stringify(r.items||[]); strs.push(s); items=items.concat(JSON.parse(s)); });
       if(ok&&items.length===m.count) return {version:m.version, items:items, chunks:strs};
-      await new Promise(function(r){ setTimeout(r,1200); });
+      await new Promise(function(r){ setTimeout(r,1000); });
     }
-    throw new Error('"'+ds+'" маълумоти тўлиқ ўқилмади (бошқа фойдаланувчи ҳозир сақлаётган бўлиши мумкин). Саҳифани янгиланг.');
+    throw new Error('"'+ds+'" маълумоти тўлиқ ўқилмади. Саҳифани янгиланг.');
   }
   async function loadDocs(){
     var all=[], from=0;
@@ -632,8 +632,13 @@ var Store=(function(){
     return all;
   }
   async function metaVersion(name){ var m=await q(sb.from('meta').select('version').eq('name',name).maybeSingle()); return m?m.version:null; }
+  var failed=[];
   async function loadAll(){
-    for(var k=0;k<DS.length;k++){ var r=await loadDS(DS[k]); DB[DS[k]]=r.items; base[DS[k]]={version:r.version, chunks:r.chunks}; }
+    failed=[];
+    for(var k=0;k<DS.length;k++){
+      try{ var r=await loadDS(DS[k]); DB[DS[k]]=r.items; base[DS[k]]={version:r.version, chunks:r.chunks}; }
+      catch(e){ failed.push(DS[k]); }
+    }
     DB.documents=await loadDocs(); docBase={}; DB.documents.forEach(function(d){ docBase[d.id]=JSON.stringify(d); });
     docVer=await metaVersion('documents');
     normalizeEmployeesDB();
@@ -645,16 +650,21 @@ var Store=(function(){
   async function writeDS(ds){
     var nc=chunkify(DB[ds]), b=base[ds]||{version:null,chunks:[]};
     if(nc.length===b.chunks.length&&nc.every(function(c,i){return c===b.chunks[i];})) return;
-    var rv=await metaVersion(ds);
-    if(rv!==b.version){
+    var v=token();
+    try{
+      for(var i=0;i<nc.length;i++) await q(sb.from('datasets').insert({name:ds, version:v, chunk:i, items:JSON.parse(nc[i])}));
+      var res=await q(sb.rpc('commit_dataset',{p_name:ds, p_expected:b.version, p_version:v, p_chunks:nc.length, p_count:DB[ds].length}));
+    }catch(e){
+      try{ await q(sb.from('datasets').delete().eq('name',ds).eq('version',v)); }catch(_){}
+      throw e;
+    }
+    if(res==='conflict'){
+      try{ await q(sb.from('datasets').delete().eq('name',ds).eq('version',v)); }catch(_){}
       var r=await loadDS(ds); DB[ds]=r.items; base[ds]={version:r.version, chunks:r.chunks}; if(ds==='employees') normalizeEmployeesDB(); refreshUI();
       alert('Бошқа фойдаланувчи шу пайтда маълумотни ўзгартирди. База янгиланди, сизнинг охирги ўзгаришингиз сақланмади — амални қайта бажаринг.');
       return;
     }
-    var v=token(); base[ds]={version:v, chunks:nc};
-    for(var i=0;i<nc.length;i++) await q(sb.from('datasets').upsert({name:ds, chunk:i, version:v, items:JSON.parse(nc[i])}));
-    await q(sb.from('datasets').delete().eq('name',ds).gte('chunk',nc.length));
-    await q(sb.from('meta').upsert({name:ds, version:v, chunks:nc.length, count:DB[ds].length, updated_at:new Date().toISOString()}));
+    base[ds]={version:v, chunks:nc};
   }
   async function writeDocs(){
     var cur={}, up=[], del=[];
@@ -702,7 +712,9 @@ var Store=(function(){
     setState('База юкланмоқда…');
     readOnly=!canWrite();
     try{
-      await loadAll(); ready=true; refreshUI();
+      await loadAll(); refreshUI();
+      if(failed.length){ setState('Хато','err'); banner('Қуйидаги маълумот юкланмади: '+failed.join(', ')+'. Ҳужжатлар кўрсатилмоқда, лекин ўзгаришлар сақланмайди. Саҳифани янгиланг; такрорланса, эгага хабар беринг.'); watch(); return; }
+      ready=true;
       setState(readOnly?(ROLE_LBL[ME.role]+' режими'):'Юкланди ✓', readOnly?'':'ok');
       if(readOnly) banner('Сиз '+ROLE_LBL[ME.role]+' сифатида кирдингиз: маълумотни кўришингиз мумкин'+(ME.role==='commenter'?' ва ҳужжатларга изоҳ ёза оласиз (ҳужжатни 👁 тугмаси билан очинг)':'')+', лекин ўзгартира олмайсиз.');
       else if(!DB.employees.length&&!DB.tabel.length) banner('База ҳозирча бўш. "Ягона файл юклаш" бўлимидан тарих (табел) ва Taatil spravka файлларини юкланг.');
