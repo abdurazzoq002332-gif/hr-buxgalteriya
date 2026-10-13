@@ -1534,14 +1534,15 @@ function onCompSel(){
   document.getElementById('d-einfo').style.display='block';
 
   // Taatil spravka'дан аввал олган таётил кунлари ва жорий иш бошланиш санасини авто тўлдириш
-  var selKor=getEmpCompanies(e)[DF.compIdx]||'';
-  var tRec=findTaatilSpravkaRecord(e.name, selKor);
+  var tRec=compensationBaseFor(e, DF.compIdx);
   var prevEl=document.getElementById('d-prev-vac');
   var srcEl=document.getElementById('d-prev-vac-src');
   if(tRec){
-    DF.taatilInfo={startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan, excludedDays:tRec.excludedDays||0};
+    DF.taatilInfo={startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan, excludedDays:tRec.excludedDays||0, src:tRec.src};
     if(prevEl) prevEl.value=tRec.avvalOlingan;
-    if(srcEl) srcEl.innerHTML='<span style="color:#16a34a"><i class="ti ti-check"></i> Taatil spravka\'дан олинди (жорий иш бошланиши: '+fD(tRec.startDate)+')</span>';
+    if(srcEl) srcEl.innerHTML=tRec.src==='spravka'
+      ? '<span style="color:#16a34a"><i class="ti ti-check"></i> Taatil spravka\'дан олинди (жорий иш бошланиши: '+fD(tRec.startDate)+')</span>'
+      : '<span style="color:#d97706"><i class="ti ti-alert-triangle"></i> Taatil spravka\'да йўқ — иш бошланиши табелдан олинди ('+fD(tRec.startDate)+'), аввал олинган кун программадаги '+tRec.vacDocs+' та таътил ҳужжатидан: '+tRec.avvalOlingan+'. Бошқа таътил олган бўлса, қўлда тузатинг.</span>';
   } else {
     DF.taatilInfo=null;
     if(srcEl) srcEl.innerHTML='<span style="color:#94a3b8">Taatil spravka\'да топилмади — қўлда киритинг</span>';
@@ -2082,7 +2083,7 @@ function buildBulkPreview(rows){
     // кун билан солиштирамиз (файлда кун бўлмаса — ҳисобланганини қўямиз).
     var lawWarn='';
     if(!error&&row.type==='Расчет'&&emp){
-      var tRec=findTaatilSpravkaRecord(emp.name, compList[compIdx]||row.korxona||'');
+      var tRec=compensationBaseFor(emp, compIdx);
       var termD=parseDate(row.startDate);
       if(tRec&&termD){
         var stint=parseDate(tRec.startDate);
@@ -2098,8 +2099,9 @@ function buildBulkPreview(rows){
         if(missM.length) lawWarn=(lawWarn?lawWarn+'; ':'')+'⛔ ТАБЕЛИ ЙЎҚ ойлар ишланган деб ҳисобланди: '+missM.map(function(x){return x.label;}).join(', ')+' — табелни юкланг ёки прогул бўлса "Стажга кирмайдиган кун"ни тўлдиринг';
         var shortM=findShortMonths(emp, compIdx, stint, termD);
         if(shortM.length) lawWarn=(lawWarn?lawWarn+'; ':'')+'Табелда нормадан кам ойлар: '+shortM.map(function(x){return x.label+' '+x.fact+'/'+x.norm;}).join(', ')+' — прогул/ҳақсиз таътил бўлса, "Стажга кирмайдиган кун" устунини тўлдиринг';
+        if(tRec&&tRec.src==='tabel') lawWarn=(lawWarn?lawWarn+'; ':'')+'Taatil spravka\'да йўқ — иш бошланиши табелдан ('+fD(tRec.startDate)+'), аввал олинган '+tRec.avvalOlingan+' кун (программадаги таътиллардан)';
       } else if(!tRec){
-        lawWarn='Taatil spravka\'да топилмади — кун текширилмади';
+        lawWarn='Taatil spravka\'да ҳам, табелда ҳам иш бошланиш санаси йўқ — кун ҳисобланмади';
       }
     }
     if(!error&&!(row.wdays>0))error='Иш куни киритилмаган';
@@ -3228,6 +3230,22 @@ function _doTaatilImport(){
 }
 
 // Ходим (ФИО) + корхона бўйича Taatil spravka ёзувини топади (нормаллаштирилган мослик)
+// Расчет учун иш даври: аввал Taatil spravka, бўлмаса — программадаги иш бошланиш санаси
+// (ходим/табел), аввал олинган кун эса шу корхона бўйича программадаги таътил ҳужжатларидан.
+function compensationBaseFor(e, compIdx){
+  var kor=getEmpCompanies(e)[compIdx]||'';
+  var tRec=findTaatilSpravkaRecord(e.name, kor);
+  if(tRec) return {startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan||0, excludedDays:tRec.excludedDays||0, src:'spravka'};
+  var snap=getCompanySnapshot(e, compIdx);
+  var sd=snap.startDate||e.startDate||'';
+  if(!sd||!parseDate(sd)) return null;
+  var st=parseDate(sd), av=0, n=0;
+  (DB.documents||[]).forEach(function(d){
+    if(d.type!=='Таътил'||normName(d.fish)!==normName(e.name)||!sameCompanyName(d.company,kor)) return;
+    var ds=parseDate(d.startDate); if(ds&&ds>=st){ av+=parseInt(d.cdays)||0; n++; }
+  });
+  return {startDate:sd, avvalOlingan:av, excludedDays:0, src:'tabel', vacDocs:n};
+}
 function findTaatilSpravkaRecord(empName, companyName){
   if(!DB.taatilSpravka || !DB.taatilSpravka.length) return null;
   var nn=normName(empName), kn=normName(companyName||'');
