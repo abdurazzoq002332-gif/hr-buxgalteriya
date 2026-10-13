@@ -3349,10 +3349,28 @@ function calDaysInPeriod(monthStart, stintStart, termDate){
 // Иш давридаги ТАБЕЛИ УМУМАН ЙЎҚ ойлар (бўшаш ойи ҳам). Бундай ойлар стажга "ишланган"
 // деб киради — лекин ходим ишлаганми, номаълум. HR тасдиқлаши шарт. Кунлар сонига бўшаш
 // кунининг ўзи кирмайди (у ишланган кун деб олинади).
+// Корхона бўйича табел тарихи бошланган ой (биринчи ойнинг 1-куни). Ундан олдинги давр
+// тўлиқ ишланган деб олинади — тарих йўқ, текширишнинг иложи йўқ.
+var _histStart={ref:null,len:-1,map:{}};
+function tabelHistoryStart(company){
+  if(_histStart.ref!==DB.tabel||_histStart.len!==DB.tabel.length){
+    var mp={}, all=null;
+    DB.tabel.forEach(function(t){ var v=monthSortValue(t.month); if(v<0) return;
+      var k=normName(t.korxona||''); if(mp[k]===undefined||v<mp[k]) mp[k]=v; if(all===null||v<all) all=v; });
+    mp['*']=all; _histStart={ref:DB.tabel,len:DB.tabel.length,map:mp};
+  }
+  var v=_histStart.map[normName(company||'')];
+  if(v===undefined) v=_histStart.map['*'];
+  if(v===null||v===undefined) return null;
+  var y=Math.floor((v-1)/12), mo=v-y*12; // monthSortValue = йил*12 + ой
+  return new Date(y, mo-1, 1);
+}
 function findMissingMonths(e, compIdx, stintStart, termDate, useScreen){
   var out=[]; if(!e||!stintStart||!termDate) return out;
   var lastDay=addDaysLocal(termDate,-1);
+  var hs=tabelHistoryStart(getEmpCompanies(e)[compIdx]||'');
   var m=new Date(stintStart.getFullYear(), stintStart.getMonth(), 1);
+  if(hs&&m<hs) m=hs; // тарихдан олдинги ойлар — тўлиқ ишланган деб олинади
   var last=new Date(termDate.getFullYear(), termDate.getMonth(), 1);
   while(m<=last){
     if(!monthTabelData(e, compIdx, m, useScreen)){
@@ -3411,6 +3429,11 @@ function renderShortMonthsWarn(stintStart, termDate){
   var sug=suggestedExcludedDays(e, DF.compIdx, stintStart, termDate, true);
   DF.absenceCheck={missing:sug.missing, zero:sug.zero, suggested:sug.days, base:(DF.taatilInfo&&DF.taatilInfo.excludedDays)||0};
   var html='';
+  var hs=tabelHistoryStart(getEmpCompanies(e)[DF.compIdx]||'');
+  if(hs&&stintStart<hs){
+    html+='<div style="font-size:12px;color:#64748b;margin:-4px 0 10px"><i class="ti ti-info-circle"></i> Табел тарихи '+MN_FULL[hs.getMonth()]+' '+hs.getFullYear()+
+      ' дан бошланган — иш бошланишидан ('+stintStart.toLocaleDateString('ru-RU')+') шу ойгача бўлган давр тўлиқ ишланган деб олинди.</div>';
+  }
   if(sug.missing.length){
     html+='<div class="alert" style="margin-bottom:12px;background:#fef2f2;color:#991b1b;border:1px solid #fecaca"><i class="ti ti-alert-octagon" style="flex-shrink:0;margin-top:2px"></i><div>'+
       '<b>Табел маълумоти ЙЎҚ ойлар:</b> '+sug.missing.map(function(x){return x.label+' ('+x.days+' календар кун)';}).join(', ')+'.<br>'+
