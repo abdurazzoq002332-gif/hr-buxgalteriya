@@ -1598,6 +1598,11 @@ function buildSalTable(){
     if(startWork&&m<new Date(startWork.getFullYear(),startWork.getMonth(),1))continue;
     months.push(m);
   }
+  DF.avgBasis=''; var fbRow=null;
+  if(!months.some(function(m){return hasMonthData(e,DF.compIdx,m);})){
+    var fb=avgFallbackFor(e,DF.compIdx,evDate);
+    if(fb){ months=[fb.month]; fbRow=fb; DF.avgBasis=fb.basis; }
+  }
   DF.months=months;
   var sal=selInfo.salary||e.salary||0;
   var selKor=(DF.compIdx!=null)?(getEmpCompanies(e)[DF.compIdx]||''):'';
@@ -1608,7 +1613,7 @@ function buildSalTable(){
     var mlbl=MN_FULL[m.getMonth()]+' '+m.getFullYear();
     var mk2=mKey(m);
 
-    var trow=findTabelRowForEmployeeMonth(e,DF.compIdx,mk2);
+    var trow=fbRow?{norm:fbRow.norm,fact:fbRow.fact,salary:fbRow.salary}:findTabelRowForEmployeeMonth(e,DF.compIdx,mk2);
 
     // Табелда маълумот бор бўлса — ундан оламиз, ЙЎҚ бўлса — БЎШ қолдирамиз
     // (getWorkNorm билан автоматик тўлдирмаймиз!)
@@ -1639,6 +1644,9 @@ function buildSalTable(){
   }).join('');
 
   document.getElementById('sal-tbl-wrap').innerHTML=
+    (DF.avgBasis?'<div class="alert alert-warn" style="margin:0 0 10px;font-size:12px"><i class="ti ti-scale" style="flex-shrink:0;margin-top:2px"></i><div>'+AVG_BASIS_TXT[DF.avgBasis]+
+      (DF.avgBasis==='oklad'?' (норма='+fbRow.norm+', факт=норма, оклад='+fN(fbRow.salary)+'). Ҳодиса ойи табели юклангач, қайта ҳисобланг.':'.')+
+      ' Кунлик ставка = иш ҳақи ÷ ((25,3 ÷ норма) × факт) = оклад ÷ 25,3.</div></div>':'')+
     '<table class="stbl">'+
     '<thead><tr>'+
     '<th style="text-align:left;min-width:120px">Ой</th>'+
@@ -1841,7 +1849,7 @@ function buildCalc(){
   var startDate=document.getElementById('d-start').value;
   var endDate=t!=='Расчет'&&document.getElementById('d-end')?document.getElementById('d-end').value:'';
   var prevVac=parseInt(document.getElementById('d-prev-vac')?.value)||0;
-  DF.calcData={totalSal,totalBon,grandTotal,denom,fullM,sumPartDays,daily,wdays,cdays,brutto,pct,bruttoAdj,tax,taxRate,itogo,months:months.length,startDate,endDate,prevVac,detail};
+  DF.calcData={totalSal,totalBon,grandTotal,denom,fullM,sumPartDays,daily,wdays,cdays,brutto,pct,bruttoAdj,tax,taxRate,itogo,months:months.length,startDate,endDate,prevVac,detail,avgBasis:DF.avgBasis||''};
 
   var partRows=detail.filter(d=>!d.isFull&&d.norm>0).map(d=>'<div class="crow sub"><span class="cl">'+d.month+' ('+d.fact+'/'+d.norm+' кун): (25.3÷'+d.norm+')×'+d.fact+'</span><span class="cv">'+fN(d.pd,8).replace(/\.?0+$/,'')+'</span></div>').join('');
   var pctLine=t==='Больничный'?
@@ -1856,6 +1864,7 @@ function buildCalc(){
     '<div><div class="ilbl">Тур</div><div class="ival">'+t+'</div></div>'+
     '<div><div class="ilbl">Сана</div><div class="ival">'+fD(startDate)+(endDate?' – '+fD(endDate):'')+'</div></div>'+
     '</div>'+
+    (DF.avgBasis?'<div class="alert alert-warn" style="margin-bottom:12px;font-size:12px"><i class="ti ti-scale" style="flex-shrink:0;margin-top:2px"></i><div>'+AVG_BASIS_TXT[DF.avgBasis]+'.</div></div>':'')+
     '<div class="cresult">'+
     '<div class="crow"><span class="cl">Ҳисоб ойлар сони</span><span class="cv">'+months.length+' ой (тўлиқ: '+fullM+', тўлиқ эмас: '+(months.length-fullM)+')</span></div>'+
     '<div class="crow"><span class="cl">Жами ҳисобланган иш ҳақи (12 ой)</span><span class="cv num">'+fN(totalSal)+' сўм</span></div>'+
@@ -1982,6 +1991,27 @@ function parseVacationBatchRows(data){
 
 // UI'siz, buildSalTable()+onCellChange()+buildCalc() bilan bir xil formula
 // (bonus/ortiqcha kun UI'da odatiy holatda 0 bo'lgani uchun shu yerda ham hisobga olinmaydi)
+// МК 257-модда: жорий иш давридаги олдинги ойларда маълумот йўқ бўлса — ҳодиса ойи (ҳақиқий
+// ишланган кунлар), у ҳам бўлмаса — оклад. Натижа: {month, basis:'event'|'oklad', norm, fact, salary}
+function avgFallbackFor(e, compIdx, evDate){
+  var m=new Date(evDate.getFullYear(), evDate.getMonth(), 1);
+  var tr=findTabelRowForEmployeeMonth(e, compIdx, mKey(m));
+  if(tr&&parseNum(tr.norm)>0&&parseNum(tr.fact)>0&&parseNum(tr.salary)>0)
+    return {month:m, basis:'event', norm:parseNum(tr.norm), fact:parseNum(tr.fact), salary:parseNum(tr.salary)};
+  var snap=getCompanySnapshot(e, compIdx);
+  var okl=parseNum(snap.salary||e.salary||(tr&&tr.salary)||0);
+  if(!(okl>0)) return null;
+  var nrm=getWorkNorm(m.getFullYear(), m.getMonth()+1);
+  return {month:m, basis:'oklad', norm:nrm, fact:nrm, salary:okl};
+}
+function hasMonthData(e, compIdx, m){
+  var tr=findTabelRowForEmployeeMonth(e, compIdx, mKey(m));
+  return !!(tr&&parseNum(tr.norm)>0&&parseNum(tr.fact)>0);
+}
+var AVG_BASIS_TXT={
+  event:'МК 257-модда: жорий иш даврида олдинги ойлар бўйича иш ҳақи йўқ — ўртача иш ҳақи ҳодиса ойидаги ҳақиқий ишланган кунлар бўйича ҳисобланди',
+  oklad:'МК 257-модда: жорий иш даврида иш ҳақи маълумоти йўқ (ҳодиса ойи табели ҳам йўқ) — ўртача иш ҳақи оклад бўйича ҳисобланди'
+};
 function calcAutoMonths(e, compIdx, startDateISO){
   var evDate=parseDate(startDateISO); if(!evDate)return [];
   var baseMonth=new Date(evDate.getFullYear(),evDate.getMonth()-1,1);
@@ -1999,9 +2029,14 @@ function calcAuto(e, compIdx, params){
   var months=calcAutoMonths(e,compIdx,params.startDate);
   var totalSal=0,totalBon=0,fullM=0,sumPartDays=0,dataMonths=0;
   var detail=[];
+  var fb=null, evD=parseDate(params.startDate);
+  if(evD&&!months.some(function(m){return hasMonthData(e,compIdx,m);})){
+    fb=avgFallbackFor(e,compIdx,evD);
+    if(fb) months=[fb.month];
+  }
   months.forEach(function(m){
     var mk=mKey(m);
-    var trow=findTabelRowForEmployeeMonth(e,compIdx,mk);
+    var trow=fb?{norm:fb.norm,fact:fb.fact,salary:fb.salary}:findTabelRowForEmployeeMonth(e,compIdx,mk);
     var hasData=!!trow;
     var norm=hasData?(parseNum(trow.norm)||0):0;
     var rawFact=hasData?(parseNum(trow.fact)||0):0;
@@ -2035,7 +2070,7 @@ function calcAuto(e, compIdx, params){
   var itogo=bruttoAdj-tax;
   return {totalSal:totalSal,totalBon:totalBon,grandTotal:grandTotal,denom:denom,fullM:fullM,sumPartDays:sumPartDays,
     daily:daily,wdays:wdays,cdays:cdays,brutto:brutto,pct:pct,bruttoAdj:bruttoAdj,tax:tax,taxRate:taxRate,itogo:itogo,
-    months:months.length,dataMonths:dataMonths,startDate:params.startDate,endDate:params.endDate||'',
+    months:months.length,dataMonths:dataMonths,avgBasis:fb?fb.basis:'',startDate:params.startDate,endDate:params.endDate||'',
     prevVac:parseInt(params.prevVac)||0,detail:detail};
 }
 
@@ -2123,7 +2158,7 @@ function recalcBulkRow(item){
     type:item.row.type,startDate:item.row.startDate,endDate:item.row.endDate,
     cdays:item.row.cdays,wdays:item.row.wdays,prevVac:item.row.prevVac,pct:item.row.pct
   });
-  item.dataWarn = item.calc.dataMonths===0 ? 'Табелда маълумот йўқ — сумма 0 чиқади' : '';
+  item.dataWarn = item.calc.avgBasis ? AVG_BASIS_TXT[item.calc.avgBasis] : (item.calc.dataMonths===0 ? 'Табелда маълумот йўқ — сумма 0 чиқади' : '');
 }
 
 function renderBulkPreview(){
