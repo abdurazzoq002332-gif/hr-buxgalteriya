@@ -3355,7 +3355,7 @@ var _histStart={ref:null,len:-1,map:{}};
 function tabelHistoryStart(company){
   if(_histStart.ref!==DB.tabel||_histStart.len!==DB.tabel.length){
     var mp={}, all=null;
-    DB.tabel.forEach(function(t){ var v=monthSortValue(t.month); if(v<0) return;
+    DB.tabel.forEach(function(t){ var v=monthSortValue(t.month); if(v<2015*12+1) return; // бўш ой ("1900-01") ҳисобга олинмайди
       var k=normName(t.korxona||''); if(mp[k]===undefined||v<mp[k]) mp[k]=v; if(all===null||v<all) all=v; });
     mp['*']=all; _histStart={ref:DB.tabel,len:DB.tabel.length,map:mp};
   }
