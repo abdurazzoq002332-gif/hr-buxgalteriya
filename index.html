@@ -2754,8 +2754,11 @@ function parseTabelRows(data){
 // ══════════════════════════════════════════════════════════
 var _mtRows=[];
 var MT_RATES=[0.88,0.925]; // оклад = қўлга тегадиган / коэффициент
+// Корхона номини солиштириш учун: ташкилий шакл (ООО, MCHJ, KSH...), қўштирноқ, чизиқча, бўш жой ва
+// апострофлар ҳисобга олинмайди ("YANGI MUXTASHAM-SAROY" = "YANGI MUXTASHAM SAROY", "GREAT CITY" = "G R E A T C I T Y").
 function normCo(s){
-  return normName(String(s||'').replace(/ООО|OOO|MCHJ|МЧЖ|LLC/gi,' ').replace(/[“”„«»"']/g,' '));
+  return normName(String(s||'').replace(/ООО|OOO|MCHJ|МЧЖ|LLC/gi,' ').replace(/(^|[^A-Za-z])(KSH|QK|XK|MChJ)([^A-Za-z]|$)/g,' ').replace(/[“”„«»"']/g,' '))
+    .replace(/[^0-9A-Za-zА-Яа-яЁёЎўҚқҒғҲҳ]/g,'');
 }
 function readXlsxFile(file){
   return new Promise(function(res,rej){
