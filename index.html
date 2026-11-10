@@ -340,7 +340,9 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
       <div class="alert alert-info"><i class="ti ti-info-circle" style="flex-shrink:0;margin-top:2px"></i>
         <div>
           <b>Taatil_spravka</b> файли — ҳар бир ходимнинг жорий иш бошланиш санаси ва аввал олган таётил кунлари.<br>
-          <span style="font-size:12px">"Расчет" ҳужжати киритилганда бу маълумот автоматик ишлатилади: аввал олган таётил кунлари ва ишдан бўшашда компенсация куни ўзи ҳисобланади.</span>
+          <span style="font-size:12px">"Расчет" ҳужжати киритилганда бу маълумот автоматик ишлатилади: аввал олган таётил кунлари ва ишдан бўшашда компенсация куни ўзи ҳисобланади.
+          Файлдаги <b>«Тафсилот (хар бир таътил)»</b> варағи ҳам ўқилади: 1С'даги ҳар бир таътил сақланади, такрор ёзувлар бир марта саналади,
+          кейин программага киритилган таътиллар ҳам автоматик айирилади.</span>
         </div>
       </div>
       <div id="taatil-progress" style="display:none;margin-bottom:12px;padding:14px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;text-align:center">
@@ -354,6 +356,28 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
       </div>
       <div id="taatil-preview" style="display:none;margin-top:14px"></div>
       <div id="taatil-status" style="margin-top:12px;font-size:12px;color:#64748b"></div>
+    </div>
+  </div>
+
+  <div class="card" style="max-width:700px;margin:16px auto 0">
+    <div class="card-header">
+      <span class="card-title"><i class="ti ti-arrows-diff" style="margin-right:8px;color:#0891b2"></i>HR тизими билан солиштириш (hr.xonapps.uz)</span>
+    </div>
+    <div class="card-body">
+      <div class="alert alert-info"><i class="ti ti-info-circle" style="flex-shrink:0;margin-top:2px"></i>
+        <div>hr.xonapps.uz → Кадрлар → Бухгалтерия саҳифасидан олинган вазифалар Excel файли (масалан <b>buxgalter_vazifalar_2026-10-01.xlsx</b>:
+        Tur, FIO, PINFL, Tashkilot, Boshlanish, Tugash, Kalendar kun, Ish kun).<br>
+        <span style="font-size:12px">Ҳар бир вазифа программадаги ҳужжатлар ва Taatil spravka (1С) билан солиштирилади: қайсиси программада йўқ,
+        қайсисининг санаси ёки куни фарқли, программадаги қайси ҳужжат HR'да йўқ. Файл фақат ўқилади — базага ҳеч нарса ёзилмайди.</span></div>
+      </div>
+      <div class="upzone" onclick="document.getElementById('f-hrcmp').click()">
+        <i class="ti ti-file-spreadsheet" style="font-size:36px;display:block;margin-bottom:10px"></i>
+        <div style="font-weight:600;font-size:15px;margin-bottom:6px">HR вазифалар Excel файлини юкланг</div>
+        <div style="font-size:12px;color:#94a3b8">Ta'til / Raschot / Kasallik вазифалари</div>
+        <input type="file" id="f-hrcmp" accept=".xlsx,.xls" style="display:none" onchange="hrCompareImport(this)">
+      </div>
+      <div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="hrCompareSaved()"><i class="ti ti-database-search"></i>Базадаги HR вазифалари билан солиштириш</button></div>
+      <div id="hrcmp-result" style="display:none;margin-top:14px"></div>
     </div>
   </div>
 
@@ -481,9 +505,9 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
           <div><div class="ilbl">ПИНФЛ</div><div class="ival" id="ei-pf">—</div></div>
         </div>
         <div class="fg">
-          <label class="fl">Аввал олган таътил кунлари (умумий, иш куни)</label>
-          <input type="number" class="fc" id="d-prev-vac" value="0" min="0" style="width:200px" placeholder="0">
-          <div style="font-size:11px;color:#94a3b8;margin-top:3px">Аввалги таътиллар учун тўланган кунлар сони. Расчетда қолдирилган таътил ҳисоби учун керак.</div>
+          <label class="fl">Аввал олган таътил кунлари (жорий иш даврида, календар кун)</label>
+          <input type="number" class="fc" id="d-prev-vac" value="0" min="0" style="width:200px" placeholder="0" oninput="DF.prevManual=true;autoCalcCompensationDays()">
+          <div style="font-size:11px;color:#94a3b8;margin-top:3px">1С (Taatil spravka) ва программадаги таътиллардан автоматик йиғилади — рўйхати пастда. Қўлда ўзгартирсангиз, қўлдаги сон ишлатилади.</div>
           <div id="d-prev-vac-src" style="font-size:11px;margin-top:4px"></div>
         </div>
       </div>
@@ -636,7 +660,7 @@ function escapeHtml(t){ return String(t).replace(/[&<>"']/g,function(c){return {
 // ====== Умумий база (Supabase) ======
 var Store=(function(){
   var readOnly=false, ready=false, timer=null, running=false, again=false, dirty=false, warned=false;
-  var DS=['employees','tabel','taatilSpravka'], LIMIT=190000, enc=new TextEncoder();
+  var DS=['employees','tabel','taatilSpravka','hrTasks'], LIMIT=190000, enc=new TextEncoder();
   var base={}, docBase={}, docVer=null;
   function token(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
   function setState(t,cls){ var e=document.getElementById('sync-state'); if(e){ e.textContent=t; e.className=cls||''; } }
@@ -804,7 +828,7 @@ async function renderComments(id){
 var _auditRows=[];
 var AU_ICON={'киритди':'#16a34a','яратди':'#16a34a','ўзгартирди':'#1a56db','ўчирди':'#dc2626','изоҳ ёзди':'#7c3aed','изоҳни ўчирди':'#dc2626','рухсат берди':'#0891b2','рухсатни ўзгартирди':'#0891b2','рухсатни олди':'#dc2626','маълумотни янгилади':'#64748b'};
 function auAct(a){ return a==='яратди'?'киритди':a; }
-var DS_LBL={employees:'Ходимлар', tabel:'Табел тарихи', taatilSpravka:'Taatil spravka'};
+var DS_LBL={employees:'Ходимлар', tabel:'Табел тарихи', taatilSpravka:'Taatil spravka', hrTasks:'HR вазифалари'};
 async function renderAudit(){
   var w=document.getElementById('audit-wrap'); if(!w) return;
   if(ME.role!=='owner'){ w.textContent='Бу бўлим фақат эга учун.'; return; }
@@ -892,6 +916,7 @@ async function renderAccess(){
 // ====== DB ======
 var DB = {"employees":[],"documents":[],"tabel":[],"taatilSpravka":[]};
 if(!Array.isArray(DB.taatilSpravka)) DB.taatilSpravka=[];
+if(!Array.isArray(DB.hrTasks)) DB.hrTasks=[];
 
 // Сақлаш: серверга (Supabase) юборилади
 function saveDB(){
@@ -1279,10 +1304,10 @@ async function trimTabelAfter(mk){
   alert('✅ '+monthTitle(mk)+'дан кейинги '+drop.length+' та табел қатори ўчирилди.');
 }
 async function wipeAllData(){
-  var n='Ходимлар: '+DB.employees.length+'\nТабел қаторлари: '+DB.tabel.length+'\nTaatil spravka: '+DB.taatilSpravka.length+'\nҲужжатлар: '+DB.documents.length;
+  var n='Ходимлар: '+DB.employees.length+'\nТабел қаторлари: '+DB.tabel.length+'\nTaatil spravka: '+DB.taatilSpravka.length+'\nHR вазифалари: '+(DB.hrTasks||[]).length+'\nҲужжатлар: '+DB.documents.length;
   if(!(await uiConfirmCompat('⚠ ДИҚҚАТ! Дастурдаги БАРЧА маълумот ўчирилади:\n\n'+n+(window.WIPE_EXTRA_LABEL?'\n'+window.WIPE_EXTRA_LABEL.replace(/^,\s*/,''):'')+'\n\nДавом этасизми?'))) return;
   if(!(await uiConfirmCompat('ОХИРГИ ТАСДИҚ: бу амални ортга қайтариб бўлмайди.\n\nҲақиқатан ҳам ҲАММАСИНИ ўчирайликми?'))) return;
-  DB.employees=[]; DB.tabel=[]; DB.taatilSpravka=[]; DB.documents=[];
+  DB.employees=[]; DB.tabel=[]; DB.taatilSpravka=[]; DB.hrTasks=[]; DB.documents=[];
   if(typeof window.WIPE_EXTRA==='function'){ try{ await window.WIPE_EXTRA(); }catch(e){ alert('Қўшимча маълумотни ўчиришда хато: '+((e&&e.message)||e)); } }
   saveDB(); refreshAfterWipe();
   alert('✅ Барча маълумот ўчирилди.');
@@ -1537,12 +1562,14 @@ function onCompSel(){
   var tRec=compensationBaseFor(e, DF.compIdx);
   var prevEl=document.getElementById('d-prev-vac');
   var srcEl=document.getElementById('d-prev-vac-src');
+  DF.prevManual=false;
   if(tRec){
-    DF.taatilInfo={startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan, excludedDays:tRec.excludedDays||0, src:tRec.src};
+    DF.taatilInfo={startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan, excludedDays:tRec.excludedDays||0, src:tRec.src, items:tRec.items, warns:tRec.warns};
     if(prevEl) prevEl.value=tRec.avvalOlingan;
-    if(srcEl) srcEl.innerHTML=tRec.src==='spravka'
-      ? '<span style="color:#16a34a"><i class="ti ti-check"></i> Taatil spravka\'дан олинди (жорий иш бошланиши: '+fD(tRec.startDate)+')</span>'
-      : '<span style="color:#d97706"><i class="ti ti-alert-triangle"></i> Taatil spravka\'да йўқ — иш бошланиши табелдан олинди ('+fD(tRec.startDate)+'), аввал олинган кун программадаги '+tRec.vacDocs+' та таътил ҳужжатидан: '+tRec.avvalOlingan+'. Бошқа таътил олган бўлса, қўлда тузатинг.</span>';
+    if(srcEl) srcEl.innerHTML=(tRec.src==='spravka'
+      ? '<span style="color:#16a34a"><i class="ti ti-check"></i> Иш бошланиши Taatil spravka\'дан: '+fD(tRec.startDate)+'</span>'
+      : '<span style="color:#d97706"><i class="ti ti-alert-triangle"></i> Taatil spravka\'да йўқ — иш бошланиши табелдан олинди ('+fD(tRec.startDate)+'). 1С\'даги таътиллари номаълум — бошқа таътил олган бўлса, қўлда тузатинг.</span>')+
+      priorVacHtml(tRec);
   } else {
     DF.taatilInfo=null;
     if(srcEl) srcEl.innerHTML='<span style="color:#94a3b8">Taatil spravka\'да топилмади — қўлда киритинг</span>';
@@ -1577,7 +1604,7 @@ function buildStep3(){
     (t==='Расчет'?'<div class="fg"><label class="fl" title="МК 226-модда: узрсиз ишга келмаган кунлар ва иш йилида 14 кундан ортиқ ҳақсиз таътил кунлари">Стажга кирмайдиган кунлар (прогул, 14 кундан ортиқ ҳақсиз таътил) — календар кун</label>'+
       '<input type="number" class="fc" id="d-excl" min="0" value="'+((DF.taatilInfo&&DF.taatilInfo.excludedDays)||0)+'" oninput="DF.exclAuto=false;autoCalcCompensationDays()"></div>':'')+
     '</div>'+
-    (t==='Расчет'?'<div id="d-comp-hint" style="font-size:12px;margin-top:-6px;margin-bottom:12px"></div><div id="d-short-warn"></div>':'');
+    (t==='Расчет'?'<div id="d-comp-hint" style="font-size:12px;margin-top:-6px;margin-bottom:12px"></div><div id="d-prev-vac-list" style="font-size:12px;margin-bottom:12px"></div><div id="d-short-warn"></div>':'');
 
   var e=DB.employees[DF.empIdx];
   var hasTabel=DB.tabel.some(function(r){return normName(r.name)===normName(e.name);});
@@ -2118,8 +2145,9 @@ function buildBulkPreview(rows){
     // кун билан солиштирамиз (файлда кун бўлмаса — ҳисобланганини қўямиз).
     var lawWarn='';
     if(!error&&row.type==='Расчет'&&emp){
-      var tRec=compensationBaseFor(emp, compIdx);
       var termD=parseDate(row.startDate);
+      var tRec=compensationBaseFor(emp, compIdx, termD);
+      if(tRec&&!(row.prevVac>0)) row.prevVac=tRec.avvalOlingan;
       if(tRec&&termD){
         var stint=parseDate(tRec.startDate);
         var excl=(row.excludedDays!==null&&row.excludedDays!==undefined)?row.excludedDays:(tRec.excludedDays||0);
@@ -2134,7 +2162,8 @@ function buildBulkPreview(rows){
         if(missM.length) lawWarn=(lawWarn?lawWarn+'; ':'')+'⛔ ТАБЕЛИ ЙЎҚ ойлар ишланган деб ҳисобланди: '+missM.map(function(x){return x.label;}).join(', ')+' — табелни юкланг ёки прогул бўлса "Стажга кирмайдиган кун"ни тўлдиринг';
         var shortM=findShortMonths(emp, compIdx, stint, termD);
         if(shortM.length) lawWarn=(lawWarn?lawWarn+'; ':'')+'Табелда нормадан кам ойлар: '+shortM.map(function(x){return x.label+' '+x.fact+'/'+x.norm;}).join(', ')+' — прогул/ҳақсиз таътил бўлса, "Стажга кирмайдиган кун" устунини тўлдиринг';
-        if(tRec&&tRec.src==='tabel') lawWarn=(lawWarn?lawWarn+'; ':'')+'Taatil spravka\'да йўқ — иш бошланиши табелдан ('+fD(tRec.startDate)+'), аввал олинган '+tRec.avvalOlingan+' кун (программадаги таътиллардан)';
+        if(tRec&&tRec.src==='tabel') lawWarn=(lawWarn?lawWarn+'; ':'')+'Taatil spravka\'да йўқ — иш бошланиши табелдан ('+fD(tRec.startDate)+')';
+        if(tRec&&(tRec.avvalOlingan>0||(tRec.items||[]).length)) lawWarn=(lawWarn?lawWarn+'; ':'')+priorVacText(tRec);
       } else if(!tRec){
         lawWarn='Taatil spravka\'да ҳам, табелда ҳам иш бошланиш санаси йўқ — кун ҳисобланмади';
       }
@@ -3152,7 +3181,7 @@ var _taatilBuf = [];
 
 // "Якуний жадвал" варағидан керакли устунларни ажратиб олади:
 // Корхона, Ходим (ФИО), ПИНФЛ, Жорий иш бошланиш санаси, Аввал олинган таётил (кален. кун)
-function parseTaatilSpravkaRows(data){
+function parseTaatilSpravkaRows(data, ws){
   if(!data || !data.length) return [];
   var normHdr=function(s){ return String(s||'').toLowerCase().normalize('NFC').replace(/\s+/g,' ').trim(); };
   var hdrs=(data[0]||[]).map(normHdr);
@@ -3168,12 +3197,13 @@ function parseTaatilSpravkaRows(data){
   var startC= fc(['жорий иш','бошланиш сана','жорий сана']);
   var prevC = fc(['аввал олин','аввалги','олинган таётил','олинган таътил']);
   var exclC = fc(['стажга кирмайдиган']);
+  var fizC  = fc(['физ.код','физ код','физ. код']);
 
   // Устунлар сарлавҳа бўйича топилмаса — Taatil hisob-kitobi асбобининг ЎЗГАРМАС
   // устун тартибига қараб (0-индекс): Корхона,Ходим,ПИНФЛ,Физ.Код,ЖорийБошланиш,...,АввалОлинган
   var usedFallback=false;
   if(nameC<0 && korC<0 && startC<0 && prevC<0 && hdrs.length>=9){
-    korC=0; nameC=1; pinC=2; startC=4; prevC=8; usedFallback=true;
+    korC=0; nameC=1; pinC=2; fizC=3; startC=4; prevC=8; usedFallback=true;
   }
   if(nameC<0||korC<0||startC<0||prevC<0){
     console.warn('Taatil spravka: устунлар топилмади. Сарлавҳалар:', hdrs);
@@ -3202,8 +3232,13 @@ function parseTaatilSpravkaRows(data){
     }
     var prevDays=parseNum(row[prevC]||0);
     var exclDays=exclC>=0?parseNum(row[exclC]||0):0;
-
-    buf.push({name:name, korxona:korxona, pinfl:pinfl, startDate:startISO, avvalOlingan:prevDays, excludedDays:exclDays});
+    var rec={name:name, korxona:korxona, pinfl:pinfl, startDate:startISO, avvalOlingan:prevDays, excludedDays:exclDays};
+    if(fizC>=0) rec.fizKod=_sprKey(row[fizC]);
+    // «Аввал олинган» катаги Excel хатоси (#VALUE! ва ҳ.к.) бўлса — белгилаб қўямиз
+    var badTxt=_sprCellError(ws, data, i, prevC);
+    if(badTxt){ rec.avvalRaw=badTxt; }
+    else if(typeof row[prevC]==='string'&&row[prevC].trim()!==''&&!isFinite(Number(row[prevC].replace(/\s/g,'').replace(',','.')))) rec.avvalRaw=row[prevC].trim();
+    buf.push(rec);
   }
   if(usedFallback) console.warn('Taatil spravka: сарлавҳа орқали топилмади, устун тартиби (позиция) бўйича ўқилди.');
   return buf;
@@ -3217,8 +3252,9 @@ function importTaatilSpravka(input){
     try{
       var wb=XLSX.read(ev.target.result,{type:'binary'});
       var sheetName = wb.SheetNames.indexOf('Якуний жадвал')>=0 ? 'Якуний жадвал' : wb.SheetNames[0];
-      var data=XLSX.utils.sheet_to_json(wb.Sheets[sheetName],{header:1,defval:''});
-      var rows=parseTaatilSpravkaRows(data);
+      var ws=wb.Sheets[sheetName];
+      var data=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      var rows=parseTaatilSpravkaRows(data, ws);
       if(prog) prog.style.display='none';
       if(!rows.length){
         var hdrPreview=(data[0]||[]).slice(0,6).join(' | ');
@@ -3227,20 +3263,42 @@ function importTaatilSpravka(input){
           '\n\nБу "Taatil hisob-kitobi" асбоби чиқарган "Якуний жадвал" файлими? Файлни текшириб қайта уриниб кўринг.');
         input.value=''; return;
       }
+      // v10: «Тафсилот (хар бир таътил)» варағи — 1С'даги ҳар бир таътил
+      var detName=wb.SheetNames.find(function(n){return String(n).normalize('NFC').toLowerCase().indexOf('тафсилот')===0;});
+      var det=[], unmatched=[];
+      if(detName){
+        det=parseTaatilSpravkaDetail(XLSX.utils.sheet_to_json(wb.Sheets[detName],{header:1,defval:''}));
+        unmatched=attachSpravkaDetail(rows, det);
+      }
       _taatilBuf=rows;
+      var q=spravkaQuality(rows);
       var empSet=new Set(rows.map(function(r2){return r2.name;}));
       var korSet=new Set(rows.map(function(r2){return r2.korxona||'—';}));
       var prev=document.getElementById('taatil-preview');
       prev.style.display='block';
+      var probHtml='';
+      if(!detName){
+        probHtml+='<div class="alert alert-warn" style="margin-top:10px;font-size:12px"><i class="ti ti-alert-triangle" style="flex-shrink:0;margin-top:2px"></i><div>«Тафсилот» варағи топилмади — фақат жами «аввал олинган» кун сақланади, такрор ёзувлар ва кейинги таътилларни программа текшира олмайди.</div></div>';
+      } else {
+        probHtml+='<div style="font-size:12px;color:#475569;margin-top:8px">«'+_esc(detName)+'»: '+det.length+' та 1С ёзуви ўқилди, '+(det.length-unmatched.length)+' таси ходимларга бириктирилди'+
+          (unmatched.length?' — <b style="color:#dc2626">'+unmatched.length+' таси бириктирилмади</b> ('+unmatched.slice(0,3).map(function(v){return _esc(v.name+' / '+v.korxona);}).join('; ')+')':'')+'.</div>';
+        if(q.length){
+          probHtml+='<div class="alert alert-warn" style="margin-top:10px;font-size:12px;display:block"><b><i class="ti ti-alert-triangle"></i> Spravka\'да текширилиши керак бўлган '+q.length+' та ходим</b> — программа уларни қуйидагича ҳисоблайди:'+
+            '<div style="max-height:260px;overflow:auto;margin-top:6px"><table style="font-size:11px"><thead><tr><th>ФИО</th><th>Корхона</th><th class="text-right">Spravka</th><th class="text-right">Программа</th><th>Сабаб</th></tr></thead><tbody>'+
+            q.map(function(x){return '<tr><td>'+_esc(x.name)+'</td><td>'+_esc(x.korxona)+'</td><td class="text-right">'+_esc(String(x.spr))+'</td><td class="text-right"><b>'+x.calc+'</b></td><td>'+_esc(x.why)+'</td></tr>';}).join('')+
+            '</tbody></table></div></div>';
+        }
+      }
       prev.innerHTML=
         '<div class="stitle">Аниқланди: '+rows.length+' та қатор, '+empSet.size+' та ходим, '+korSet.size+' та корхона</div>'+
         '<table><thead><tr><th>ФИО</th><th>Корхона</th><th>Жорий иш бошланиши</th><th class="text-right">Аввал олинган</th></tr></thead><tbody>'+
         rows.slice(0,8).map(function(r2){
           return '<tr><td style="font-size:12px">'+r2.name+'</td><td style="font-size:12px">'+(r2.korxona||'—')+'</td>'+
-            '<td style="font-size:12px">'+fD(r2.startDate)+'</td><td class="text-right">'+r2.avvalOlingan+'</td></tr>';
+            '<td style="font-size:12px">'+fD(r2.startDate)+'</td><td class="text-right">'+(r2.avvalRaw||r2.avvalOlingan)+'</td></tr>';
         }).join('')+
         '</tbody></table>'+
         (rows.length>8?'<div style="padding:6px 10px;font-size:12px;color:#94a3b8">...ва яна '+(rows.length-8)+' та қатор</div>':'')+
+        probHtml+
         '<div style="margin-top:12px;display:flex;gap:8px">'+
         '<button class="btn btn-success btn-sm" onclick="_doTaatilImport()"><i class="ti ti-check"></i>Сақлаш</button>'+
         '<button class="btn btn-outline btn-sm" onclick="hideTaatilPreview()">Бекор</button></div>';
@@ -3270,29 +3328,414 @@ function _doTaatilImport(){
 // Ходим (ФИО) + корхона бўйича Taatil spravka ёзувини топади (нормаллаштирилган мослик)
 // Расчет учун иш даври: аввал Taatil spravka, бўлмаса — программадаги иш бошланиш санаси
 // (ходим/табел), аввал олинган кун эса шу корхона бўйича программадаги таътил ҳужжатларидан.
-function compensationBaseFor(e, compIdx){
+function compensationBaseFor(e, compIdx, termDate){
   var kor=getEmpCompanies(e)[compIdx]||'';
-  var tRec=findTaatilSpravkaRecord(e.name, kor);
-  if(tRec) return {startDate:tRec.startDate, avvalOlingan:tRec.avvalOlingan||0, excludedDays:tRec.excludedDays||0, src:'spravka'};
-  var snap=getCompanySnapshot(e, compIdx);
-  var sd=snap.startDate||e.startDate||'';
-  if(!sd||!parseDate(sd)) return null;
-  var st=parseDate(sd), av=0, n=0;
+  var tRec=findTaatilSpravkaRecord(e.name, kor, termDate||null);
+  // Ходимнинг БОШҚА корхонаси бўйича ёзув топилган бўлса (фақат ФИО бўйича мослашганда) — олмаймиз
+  if(tRec&&normCo(tRec.korxona)!==normCo(kor)&&getEmpCompanies(e).some(function(c,ci){return ci!==compIdx&&normCo(c)===normCo(tRec.korxona);})) tRec=null;
+  var sd, src, excl=0;
+  if(tRec){ sd=tRec.startDate; src='spravka'; excl=tRec.excludedDays||0; }
+  else {
+    var snap=getCompanySnapshot(e, compIdx);
+    sd=snap.startDate||e.startDate||'';
+    if(!sd||!parseDate(sd)) return null;
+    src='tabel';
+  }
+  var pv=priorVacationList(e, compIdx, tRec, sd, termDate||null);
+  return {startDate:sd, avvalOlingan:pv.total, excludedDays:excl, src:src,
+          vacDocs:pv.items.filter(function(x){return x.src==='Программа'&&x.use;}).length,
+          items:pv.items, warns:pv.warns, detail:!!(tRec&&Array.isArray(tRec.vac)),
+          sprAvval:tRec?(tRec.avvalRaw||tRec.avvalOlingan||0):null};
+}
+// Ходим+корхона бўйича Taatil spravka ёзуви. Бир нечта бўлса (қайта ишга олинган) — refDate'гача
+// бошланган энг охиргиси (жорий иш даври).
+function findTaatilSpravkaRecord(empName, companyName, refDate){
+  if(!DB.taatilSpravka || !DB.taatilSpravka.length) return null;
+  var nn=normName(empName), kn=normName(companyName||''), kc=normCo(companyName||'');
+  var pick=function(list){
+    if(list.length===1) return list[0];
+    var c=list.slice().sort(function(a,b){return String(b.startDate||'').localeCompare(String(a.startDate||''));});
+    if(refDate){ var f=c.find(function(r){var d=parseDate(r.startDate); return d&&d<=refDate;}); if(f) return f; }
+    return c[0];
+  };
+  var exact=DB.taatilSpravka.filter(function(r){return normName(r.name)===nn && (normName(r.korxona)===kn || (kc&&normCo(r.korxona)===kc));});
+  if(exact.length) return pick(exact);
+  // Корхонаси бўш ёзув — фақат ФИО бўйича (бошқа корхонанинг ёзуви ҳеч қачон олинмайди)
+  var noCo=DB.taatilSpravka.filter(function(r){return normName(r.name)===nn && !normCo(r.korxona);});
+  if(noCo.length) return pick(noCo);
+  return null;
+}
+
+// ── v10: аввал олинган таътиллар ──
+var SPR_UNPAID_RE=/без\s+сохранения/i;      // ҳақсиз таътил — стажга тегишли, таътил эмас
+var SPR_COMP_RE=/компенсац/i;               // «Компенсация за неиспользованный отпуск» — бўшашдаги ҳисоб-китоб
+var SPR_COMP_KEEP_RE=/без\s+увол/i;         // «...без увольнения» — иш давомида пулга алмаштирилган, саналади
+function _esc(t){ return String(t==null?'':t).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function _sprKey(v){ return String(v==null?'':v).replace(/\.0$/,'').trim(); }
+function _sprISO(v){
+  if(v===''||v===null||v===undefined) return '';
+  if(typeof v==='number'){ var d=new Date(Math.round((v-25569)*86400000)); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2); }
+  if(Object.prototype.toString.call(v)==='[object Date]') return v.getFullYear()+'-'+('0'+(v.getMonth()+1)).slice(-2)+'-'+('0'+v.getDate()).slice(-2);
+  return toISODate(String(v).trim());
+}
+// Excel катагидаги хато (#VALUE!, #REF! ...) матни — sheet_to_json уни бўш қилиб беради
+function _sprCellError(ws, data, i, c){
+  try{
+    if(!ws||!ws['!ref']||c<0) return '';
+    var rg=XLSX.utils.decode_range(ws['!ref']);
+    var cell=ws[XLSX.utils.encode_cell({r:rg.s.r+i, c:rg.s.c+c})];
+    return (cell&&cell.t==='e')?(cell.w||'#ERROR'):'';
+  }catch(err){ return ''; }
+}
+// «Тафсилот (хар бир таътил)» варағи: Корхона, Ходим, ПИНФЛ, Физ.Код, ..., Тури, Бошланиш санаси,
+// Тугаш санаси, Кун (1С хом), Кун (тўғри, қабул қилинган)
+function parseTaatilSpravkaDetail(data){
+  if(!data||data.length<2) return [];
+  var H=(data[0]||[]).map(function(x){return String(x||'').toLowerCase().normalize('NFC').replace(/\s+/g,' ').trim();});
+  var at=function(f){for(var i=0;i<H.length;i++) if(f(H[i])) return i; return -1;};
+  var c={kor:at(function(h){return h.indexOf('корхона')===0;}), name:at(function(h){return h.indexOf('ходим')===0||h.indexOf('фио')===0;}),
+    pin:at(function(h){return h.indexOf('пинфл')===0;}), fiz:at(function(h){return h.indexOf('физ')===0;}),
+    tur:at(function(h){return h==='тури'||h==='тур'||h.indexOf('вид ')===0;}),
+    s:at(function(h){return h.indexOf('бошланиш санаси')===0;}), e:at(function(h){return h.indexOf('тугаш санаси')===0;}),
+    raw:at(function(h){return h.indexOf('хом')>=0;}), d:at(function(h){return h.indexOf('қабул')>=0||h.indexOf('тўғри')>=0;})};
+  if((c.kor<0||c.name<0||c.s<0||c.d<0)&&H.length>=10) c={kor:0,name:1,pin:2,fiz:3,tur:5,s:6,e:7,raw:8,d:9};
+  if(c.name<0||c.s<0) return [];
+  var out=[];
+  for(var i=1;i<data.length;i++){
+    var r=data[i]; if(!r) continue;
+    var name=String(r[c.name]||'').trim(); if(!name) continue;
+    var dv=c.d>=0?r[c.d]:'', rv=c.raw>=0?r[c.raw]:'';
+    out.push({korxona:c.kor>=0?String(r[c.kor]||'').trim():'', name:name, pinfl:c.pin>=0?_sprKey(r[c.pin]):'',
+      fizKod:c.fiz>=0?_sprKey(r[c.fiz]):'', t:c.tur>=0?String(r[c.tur]||'').trim():'',
+      s:_sprISO(r[c.s]), e:c.e>=0?_sprISO(r[c.e]):'', d:(String(dv).trim()!==''?parseNum(dv):parseNum(rv))});
+  }
+  return out;
+}
+// Тафсилот ёзувларини «Якуний жадвал» ёзувларига бириктиради (корхона+Физ.Код, бўлмаса корхона+ФИО).
+// Бириктирилмаганлар қайтарилади.
+function attachSpravkaDetail(rows, det){
+  var byFiz={}, byName={};
+  rows.forEach(function(r){
+    r.vac=[];
+    if(r.fizKod){ var k1=normCo(r.korxona)+'|'+r.fizKod; (byFiz[k1]=byFiz[k1]||[]).push(r); }
+    var k2=normCo(r.korxona)+'|'+normName(r.name); (byName[k2]=byName[k2]||[]).push(r);
+  });
+  var un=[];
+  det.forEach(function(v){
+    var a=v.fizKod?byFiz[normCo(v.korxona)+'|'+v.fizKod]:null, tgt=null;
+    if(a&&a.length===1) tgt=a[0];
+    else { var b=byName[normCo(v.korxona)+'|'+normName(v.name)]; if(b&&b.length===1) tgt=b[0]; }
+    if(tgt) tgt.vac.push({t:v.t, s:v.s, e:v.e, d:v.d}); else un.push(v);
+  });
+  // Тафсилоти топилмаган, лекин spravka'да «аввал олинган» > 0 бўлган ёзув — эски жамидан фойдаланилади
+  rows.forEach(function(r){ if(!r.vac.length&&parseNum(r.avvalOlingan)>0) delete r.vac; });
+  return un;
+}
+// Битта таътилнинг сана оралиғи [бошланиш, тугаш]
+function _vacRange(it){
+  var s0=parseDate(it.s); if(!s0) return null;
+  var e0=parseDate(it.e); if(!e0||e0<s0) e0=addDaysLocal(s0, Math.max(1,parseInt(it.d)||1)-1);
+  return [s0,e0];
+}
+// Ходим+корхона бўйича жорий иш давридаги аввал олинган таътиллар:
+// 1С (Taatil spravka тафсилоти) + программадаги «Таътил» ҳужжатлари. Саналари кесишган ёзувлар битта
+// таътил деб бир марта саналади (1С устун, такрорлардан кўп кунлиси). Натижа: {items, total, warns}
+function priorVacationList(e, compIdx, tRec, stintISO, termDate){
+  var kor=getEmpCompanies(e)[compIdx]||'';
+  var st=parseDate(stintISO);
+  var items=[], warns=[];
+  var hasDet=!!(tRec&&Array.isArray(tRec.vac));
+  if(tRec&&!hasDet){
+    items.push({src:'1С', t:'Taatil spravka (жами, таътиллар рўйхатисиз)', s:'', e:'', d:parseNum(tRec.avvalOlingan), use:true, why:''});
+    warns.push('Taatil spravka таътиллар рўйхатисиз юкланган — «Импорт» бўлимида Taatil_spravka.xlsx файлини қайта юкланг (такрор ёзувлар ва spravka\'дан кейинги таътиллар шунда тўғри саналади)');
+    if(tRec.avvalRaw) warns.push('Taatil spravka\'да «аввал олинган» катаги хато ('+tRec.avvalRaw+') — 0 деб олинди');
+  }
+  if(hasDet) tRec.vac.forEach(function(v){
+    var it={src:'1С', t:v.t||'', s:v.s||'', e:v.e||'', d:parseNum(v.d), use:true, why:''};
+    var vs=parseDate(it.s);
+    if(SPR_UNPAID_RE.test(it.t)){ it.use=false; it.why='ҳақсиз таътил — аввал олинганга қўшилмайди'; }
+    else if(SPR_COMP_RE.test(it.t)&&!SPR_COMP_KEEP_RE.test(it.t)){ it.use=false; it.why='бўшашдаги компенсация (олдинги иш даври ҳисоб-китоби) — қўшилмади. Иш давомида пулга алмаштирилган бўлса, қўлда қўшинг'; }
+    else if(vs&&st&&vs<st){ it.use=false; it.why='жорий иш бошланишидан ('+fD(stintISO)+') олдин'; }
+    else if(vs&&termDate&&vs>termDate){ it.use=false; it.why='бўшаш санасидан кейин'; }
+    else if(!it.t) it.why='1С\'да тури кўрсатилмаган — текширинг';
+    items.push(it);
+  });
   (DB.documents||[]).forEach(function(d){
     if(d.type!=='Таътил'||normName(d.fish)!==normName(e.name)||!sameCompanyName(d.company,kor)) return;
-    var ds=parseDate(d.startDate); if(ds&&ds>=st){ av+=parseInt(d.cdays)||0; n++; }
+    var ds=parseDate(d.startDate); if(!ds) return;
+    var it={src:'Программа', t:'Таътил ҳужжати', s:d.startDate, e:d.endDate||'', d:parseInt(d.cdays)||0, use:true, why:'', docId:d.id};
+    if(st&&ds<st){ it.use=false; it.why='жорий иш бошланишидан ('+fD(stintISO)+') олдин'; }
+    else if(termDate&&ds>termDate){ it.use=false; it.why='бўшаш санасидан кейин'; }
+    items.push(it);
   });
-  return {startDate:sd, avvalOlingan:av, excludedDays:0, src:'tabel', vacDocs:n};
+  // Такрорлар: аввал 1С (кўп кунлиси биринчи), кейин программа; кесишгани битта таътил
+  var kept=[];
+  items.map(function(it,i){return i;}).filter(function(i){return items[i].use;}).sort(function(a,b){
+    var A=items[a], B=items[b], pa=A.src==='1С'?0:1, pb=B.src==='1С'?0:1;
+    return pa!==pb?pa-pb:((B.d||0)-(A.d||0));
+  }).forEach(function(i){
+    var it=items[i], r=_vacRange(it);
+    var hit=r?kept.find(function(k){return k.r&&r[0]<=k.r[1]&&k.r[0]<=r[1];}):null;
+    if(!hit){ kept.push({it:it, r:r}); return; }
+    var h=hit.it, rng=fD(h.s)+'–'+fD(h.e||h.s)+', '+h.d+' кун';
+    it.use=false; it.dup=true;
+    if(it.src==='1С'){
+      it.why='1С\'да такрор ёзув ('+rng+' билан кесишади) — бир марта саналди';
+      warns.push('1С\'да битта таътил икки марта ёзилган: '+fD(h.s)+'–'+fD(h.e)+' ('+h.d+' кун) ва '+fD(it.s)+'–'+fD(it.e)+' ('+it.d+' кун) — '+h.d+' кун олинди, 1С\'дан текширинг');
+    } else {
+      it.why=(h.src==='1С'?'1С\'да бор':'программада такрор')+' ('+rng+')'+(it.d!==h.d?' — кун фарқли: шу ерда '+it.d:'')+'; бир марта саналди';
+      if(h.src!=='1С') warns.push('Программада битта таътил икки марта киритилган: '+fD(h.s)+' ва '+fD(it.s)+' — текширинг');
+    }
+  });
+  // HR тизими вазифалари: 1С/программадаги таътил билан кесишса — «HR ✓»; кесишмаса — огоҳлантириш
+  // (автоматик айирилмайди: ҳақсиз ёки тўланмаган бўлиши мумкин — фойдаланувчи ҳал қилади)
+  var pin=_sprKey(e.pinfl||''), hrSeen=[];
+  (DB.hrTasks||[]).forEach(function(h){
+    if(h.type!=='Таътил') return;
+    if(!(normName(h.name)===normName(e.name)||(pin&&pin.length>5&&h.pinfl===pin))) return;
+    if(h.korxona&&!_sameCoLoose(h.korxona,kor)) return;
+    var hs=parseDate(h.s); if(!hs) return;
+    if(st&&hs<st) return;
+    if(termDate&&hs>termDate) return;
+    var it={src:'HR', t:(h.sub||'Ta\'til')+(h.buyruq?' (буйруқ '+h.buyruq+')':''), s:h.s, e:h.e||'', d:parseNum(h.cd), use:false, why:''};
+    var r=_vacRange(it);
+    var hit=r?kept.find(function(k){return k.r&&r[0]<=k.r[1]&&k.r[0]<=r[1];}):null;
+    if(hit){ hit.it.hr=true; if(toISODate(hit.it.s)!==h.s||parseNum(hit.it.d)!==parseNum(h.cd)) hit.it.why=(hit.it.why?hit.it.why+'; ':'')+'HR\'да: '+fD(h.s)+'–'+fD(h.e)+', '+h.cd+' кун'; return; }
+    if(r&&hrSeen.some(function(x){return r[0]<=x[1]&&x[0]<=r[1];})) return;
+    if(r) hrSeen.push(r);
+    if(/haqisiz|без\s+сохр/i.test(h.sub||'')){ it.why='HR: ҳақсиз таътил — аввал олинганга қўшилмайди'; items.push(it); return; }
+    it.hrOnly=true;
+    it.why='HR\'да бор, 1С ва программада йўқ — ҳисобга олинмади. Тўланган бўлса, программага «Таътил» ҳужжатини киритинг ёки «Аввал олган» сонига қўлда қўшинг'+(h.korxona?'':' (HR\'да корхона кўрсатилмаган)');
+    warns.push('HR\'да таътил бор, 1С ва программада йўқ: '+fD(h.s)+'–'+fD(h.e)+' ('+(h.cd||0)+' кун) — тўланганми, текширинг');
+    items.push(it);
+  });
+  items.sort(function(a,b){return String(a.s||'0').localeCompare(String(b.s||'0'));});
+  var total=items.reduce(function(sm,it){return sm+(it.use?(parseNum(it.d)||0):0);},0);
+  return {items:items, total:total, warns:warns};
 }
-function findTaatilSpravkaRecord(empName, companyName){
-  if(!DB.taatilSpravka || !DB.taatilSpravka.length) return null;
-  var nn=normName(empName), kn=normName(companyName||'');
-  var exact=DB.taatilSpravka.find(function(r){return normName(r.name)===nn && normName(r.korxona)===kn;});
-  if(exact) return exact;
-  // Корхона номи бўш бўлса ёки аниқ мос топилмаса — фақат ФИО бўйича (ягона ёзув бўлса)
-  var byNameOnly=DB.taatilSpravka.filter(function(r){return normName(r.name)===nn;});
-  if(byNameOnly.length===1) return byNameOnly[0];
-  return null;
+// Расчет ойнаси / оммавий юклаш учун аввал олинган таътиллар жадвали
+function priorVacHtml(b, manualVal){
+  if(!b) return '';
+  var rows=(b.items||[]).map(function(it){
+    var col=it.hrOnly?'#b45309':(it.use?'#0f172a':'#94a3b8');
+    return '<tr style="color:'+col+(it.hrOnly?';background:#fffbeb':'')+'"><td style="white-space:nowrap">'+(it.s?fD(it.s)+(it.e?' – '+fD(it.e):''):'—')+'</td>'+
+      '<td style="white-space:nowrap">'+_esc(it.src)+(it.hr?' <span title="HR тизимида ҳам бор" style="color:#16a34a">+HR ✓</span>':'')+'</td><td>'+_esc(it.t)+'</td>'+
+      '<td class="text-right">'+(it.use?'<b>'+it.d+'</b>':(it.hrOnly?'('+it.d+')':'<s>'+it.d+'</s>'))+'</td><td>'+_esc(it.why||'')+'</td></tr>';
+  }).join('');
+  var head='<div style="font-weight:600;color:#334155;margin:6px 0 4px"><i class="ti ti-beach"></i> Аввал олинган таътиллар (жорий иш даври, '+fD(b.startDate)+' дан): <span style="color:#1a56db">'+b.avvalOlingan+' кун</span>'+
+    (b.sprAvval!==null&&b.sprAvval!==undefined&&b.detail&&String(b.sprAvval)!==String(b.avvalOlingan)?' <span style="font-weight:400;color:#64748b">(Taatil spravka жами: '+_esc(b.sprAvval)+')</span>':'')+'</div>';
+  var man=(manualVal!==undefined&&manualVal!==null&&String(manualVal)!==''&&parseFloat(manualVal)!==b.avvalOlingan)?
+    '<div style="color:#b45309;margin-top:4px"><i class="ti ti-hand-finger"></i> Қўлда киритилган сон ишлатилмоқда: '+_esc(manualVal)+' кун (автоматик: '+b.avvalOlingan+')</div>':'';
+  var w=(b.warns||[]).map(function(x){return '<div style="color:#b45309"><i class="ti ti-alert-triangle"></i> '+_esc(x)+'</div>';}).join('');
+  return head+(rows?'<div style="overflow-x:auto"><table style="font-size:11px"><thead><tr><th>Саналар</th><th>Манба</th><th>Тури</th><th class="text-right">Кун</th><th>Изоҳ</th></tr></thead><tbody>'+rows+'</tbody></table></div>':
+    '<div style="color:#64748b">1С\'да ҳам, программада ҳам таътил йўқ.</div>')+man+w;
+}
+// Оммавий юклаш устуни учун қисқа матн
+function priorVacText(b){
+  if(!b) return '';
+  var used=(b.items||[]).filter(function(x){return x.use;}).map(function(x){return x.src+' '+x.d+(x.s?' ('+fD(x.s)+(x.e?'–'+fD(x.e):'')+')':'');});
+  var skip=(b.items||[]).filter(function(x){return !x.use&&!x.hrOnly;}).map(function(x){return x.src+' '+x.d+(x.s?' ('+fD(x.s)+')':'')+': '+x.why;});
+  var t='Аввал олинган таътил '+b.avvalOlingan+' кун'+(used.length?' = '+used.join(' + '):'');
+  if(skip.length) t+='; ҳисобга олинмади: '+skip.join('; ');
+  if(b.warns&&b.warns.length) t+='; ⚠ '+b.warns.join('; ⚠ ');
+  return t;
+}
+// Taatil spravka сифат текшируви: программа ҳисоблайдиган «аввал олинган» spravka'дагидан фарқ қилган ходимлар
+function spravkaQuality(rows){
+  var out=[];
+  rows.forEach(function(r){
+    if(!Array.isArray(r.vac)){
+      out.push({name:r.name, korxona:r.korxona, spr:r.avvalOlingan, calc:r.avvalOlingan, why:'1С тафсилоти топилмади — spravka жамиси ишлатилади'});
+      return;
+    }
+    var pv=_priorFromSpravkaOnly(r);
+    var spr=r.avvalRaw||r.avvalOlingan||0;
+    if(String(spr)!==String(pv.total)||pv.why.length) out.push({name:r.name, korxona:r.korxona, spr:spr, calc:pv.total, why:pv.why.join('; ')||'Spravka жамиси тафсилотдан фарқ қилади'});
+  });
+  return out;
+}
+// Фақат 1С тафсилоти бўйича (программа ҳужжатларисиз) ҳисоб — сифат текшируви учун
+function _priorFromSpravkaOnly(r){
+  var st=parseDate(r.startDate), why=[], kept=[], total=0;
+  var list=r.vac.map(function(v){return {t:v.t||'', s:v.s||'', e:v.e||'', d:parseNum(v.d)};});
+  list.forEach(function(it){
+    var vs=parseDate(it.s);
+    if(SPR_UNPAID_RE.test(it.t)) it.skip=1;
+    else if(SPR_COMP_RE.test(it.t)&&!SPR_COMP_KEEP_RE.test(it.t)){ it.skip=1; why.push('бўшашдаги компенсация '+it.d+' кун қўшилмади'); }
+    else if(vs&&st&&vs<st){ it.skip=1; why.push(fD(it.s)+' ('+it.d+' кун) жорий иш давридан олдин'); }
+    else if(!it.t) why.push(fD(it.s)+' ёзувида тури йўқ');
+  });
+  list.filter(function(x){return !x.skip;}).sort(function(a,b){return (b.d||0)-(a.d||0);}).forEach(function(it){
+    var rg=_vacRange(it);
+    var hit=rg?kept.find(function(k){return k.r&&rg[0]<=k.r[1]&&k.r[0]<=rg[1];}):null;
+    if(hit){ why.push('такрор ёзув '+fD(it.s)+'–'+fD(it.e)+' ('+it.d+' кун)'); return; }
+    kept.push({r:rg}); total+=it.d||0;
+  });
+  if(r.avvalRaw) why.unshift('Spravka катаги хато ('+r.avvalRaw+')');
+  return {total:total, why:why};
+}
+
+// ══════════════════════════════════════════════════════════
+//  HR ТИЗИМИ (hr.xonapps.uz) БИЛАН СОЛИШТИРИШ — фақат ўқиш
+// ══════════════════════════════════════════════════════════
+var _hrCmp=null;
+function _hrType(t){
+  t=String(t||'').toLowerCase();
+  if(/rasch|расч|увол|бўшаш/.test(t)) return 'Расчет';
+  if(/kasal|касал|больн|bemor/.test(t)) return 'Больничный';
+  if(/ta\W?til|tatil|таътил|татил|отпуск/.test(t)) return 'Таътил';
+  return '';
+}
+function hrParseTasks(data){
+  var hdrs=(data[0]||[]).map(function(h){return String(h).toLowerCase().trim();});
+  var fc=function(kw){for(var i=0;i<hdrs.length;i++){if(kw.some(function(k){return hdrs[i].indexOf(k)>=0;}))return i;}return -1;};
+  var tc=fc(['tur','тур','вид']), nc=fc(['fio','фио','ф.и.о','ф.и.ш']), pc=fc(['pinfl','пинфл']), oc=fc(['buyruq','буйруқ','приказ']),
+      kc=fc(['tashkilot','ташкилот','корхона','организация']), sc=fc(['boshlanish','бошланиш','начал']), ec=fc(['tugash','тугаш','конец']),
+      cc=fc(['kalendar','календар']), wc=fc(['ish kun','иш кун','рабоч']);
+  var uc=-1; hdrs.forEach(function(h,i){ if(uc<0&&i!==tc&&/turi|тури/.test(h)) uc=i; });
+  if(nc<0||sc<0) return null;
+  var out=[];
+  for(var i=1;i<data.length;i++){
+    var r=data[i]; if(!r) continue;
+    var name=String(r[nc]||'').trim(); if(name.length<3) continue;
+    out.push({type:_hrType(tc>=0?r[tc]:''), rawType:tc>=0?String(r[tc]||'').trim():'', name:name,
+      pinfl:pc>=0?_sprKey(r[pc]):'', buyruq:oc>=0?String(r[oc]||'').trim():'', korxona:kc>=0?String(r[kc]||'').trim():'',
+      s:xlsxDateToISO(r[sc]), e:ec>=0?xlsxDateToISO(r[ec]):'', cd:cc>=0?parseNum(r[cc]):0, wd:wc>=0?parseNum(r[wc]):0,
+      sub:uc>=0?String(r[uc]||'').trim():''});
+  }
+  return out;
+}
+function hrCompareImport(input){
+  var f=input.files[0]; if(!f) return;
+  var rd=new FileReader();
+  rd.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'binary'});
+      var rows=hrParseTasks(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''}));
+      input.value='';
+      if(!rows||!rows.length){ alert('Файлда вазифалар топилмади. Устунлар: Tur, FIO, PINFL, Tashkilot, Boshlanish, Tugash, Kalendar kun, Ish kun бўлиши керак.'); return; }
+      _hrCmp={file:f.name, rows:rows, res:hrCompareRun(rows), saved:false};
+      hrCompareRender('');
+    }catch(err){ alert('Хато: '+err.message); }
+  };
+  rd.readAsBinaryString(f);
+}
+function _sameCoLoose(a,b){ return sameCompanyName(a,b)||(!!normCo(a)&&normCo(a)===normCo(b)); }
+function hrCompareRun(rows){
+  var docs=(DB.documents||[]).filter(function(d){return d.type==='Таътил'||d.type==='Расчет'||d.type==='Больничный';});
+  var res=[], matched={}, types={}, minD=null, maxD=null;
+  var pinName={}; (DB.employees||[]).forEach(function(e){ if(e.pinfl) pinName[_sprKey(e.pinfl)]=normName(e.name); });
+  var dRange=function(d){ var a=parseDate(d.startDate); if(!a) return null; var b=parseDate(d.endDate); if(!b||b<a) b=addDaysLocal(a,Math.max(1,parseInt(d.cdays)||1)-1); return [a,b]; };
+  var fmtDoc=function(d){ return fD(d.startDate)+(d.endDate&&d.type!=='Расчет'?'–'+fD(d.endDate):'')+', '+(d.cdays||0)+'/'+(d.wdays||0)+' кун'+(d.createdBy?' ('+String(d.createdBy).split('@')[0]+')':''); };
+  rows.forEach(function(h){
+    var hs=parseDate(h.s), he=parseDate(h.e)||hs;
+    if(h.type) types[h.type]=1;
+    if(hs){ if(!minD||hs<minD) minD=hs; if(!maxD||hs>maxD) maxD=hs; }
+    var names={}; names[normName(h.name)]=1; if(h.pinfl&&pinName[h.pinfl]) names[pinName[h.pinfl]]=1;
+    var hrTxt=fD(h.s)+(h.e?'–'+fD(h.e):'')+', '+(h.cd||0)+'/'+(h.wd||0)+' кун'+(h.buyruq?' (буйруқ '+h.buyruq+')':'');
+    var row={st:'', type:h.type||h.rawType||'?', name:h.name, korxona:h.korxona, hr:hrTxt, prog:'', note:''};
+    if(!h.type){ row.st='Тури номаълум'; row.note='«'+h.rawType+'» — солиштирилмади'; res.push(row); return; }
+    if(!hs){ row.st='Санаси йўқ'; res.push(row); return; }
+    var cand=docs.filter(function(d){
+      if(d.type!==h.type||!names[normName(d.fish)]) return false;
+      if(h.korxona&&!_sameCoLoose(d.company,h.korxona)) return false;
+      var r=dRange(d); if(!r) return false;
+      if(h.type==='Расчет') return Math.abs(r[0]-hs)<=31*86400000;
+      return r[0]<=he&&hs<=r[1];
+    });
+    if(!h.korxona) row.note='HR\'да корхона кўрсатилмаган; ';
+    if(!cand.length){
+      row.st='Программада йўқ';
+      if(h.type==='Таътил'){
+        var one1C=null;
+        (DB.taatilSpravka||[]).forEach(function(t){
+          if(one1C||!Array.isArray(t.vac)||!names[normName(t.name)]||(h.korxona&&!_sameCoLoose(t.korxona,h.korxona))) return;
+          t.vac.forEach(function(v){ var vr=_vacRange(v); if(!one1C&&vr&&vr[0]<=he&&hs<=vr[1]) one1C=v; });
+        });
+        if(/haqisiz|без\s+сохр/i.test(h.sub||'')){ row.st='Ҳақсиз таътил'; row.note+='ҳақсиз таътил — программага киритилмайди'; }
+        else if(one1C){ row.st='1С\'да бор'; row.note+='1С: '+fD(one1C.s)+'–'+fD(one1C.e)+', '+one1C.d+' кун ('+one1C.t+')'+((one1C.s!==h.s||parseNum(one1C.d)!==h.cd)?' — HR билан фарқли':''); }
+        else row.note+='1С\'да ҳам йўқ — тўланганми, текширинг (ҳақсиз таътил бўлса, эътибор берманг)';
+      }
+      res.push(row); return;
+    }
+    cand.forEach(function(d){ matched[d.id]=(matched[d.id]||0)+1; });
+    row.prog=cand.map(fmtDoc).join(' | ');
+    var d0=cand[0], diffs=[];
+    if(cand.length>1) diffs.push('программада '+cand.length+' та ҳужжат (такрор?)');
+    if(toISODate(d0.startDate)!==h.s) diffs.push('бошланиш '+fD(d0.startDate)+' ≠ HR '+fD(h.s));
+    if(h.type!=='Расчет'&&h.e&&d0.endDate&&toISODate(d0.endDate)!==h.e) diffs.push('тугаш '+fD(d0.endDate)+' ≠ HR '+fD(h.e));
+    if(h.type!=='Расчет'&&h.cd&&parseInt(d0.cdays)!==h.cd) diffs.push('календар кун '+d0.cdays+' ≠ HR '+h.cd);
+    if(h.type!=='Расчет'&&h.wd&&parseInt(d0.wdays)!==h.wd) diffs.push('иш куни '+d0.wdays+' ≠ HR '+h.wd);
+    row.st=diffs.length?'Фарқли':'Мос';
+    row.note+=diffs.join('; ');
+    res.push(row);
+  });
+  // Программада бор, HR файлида йўқ (файлдаги давр ва турлар доирасида)
+  if(minD&&maxD) docs.forEach(function(d){
+    if(matched[d.id]||!types[d.type]) return;
+    var ds=parseDate(d.startDate); if(!ds||ds<minD||ds>maxD) return;
+    res.push({st:'HR файлида йўқ', type:d.type, name:d.fish, korxona:d.company, hr:'', prog:fmtDoc(d), note:'HR\'да бундай буйруқ йўқ ёки бошқа корхона/сана билан'});
+  });
+  var ord={'Программада йўқ':0,'Фарқли':1,'HR файлида йўқ':2,'Тури номаълум':3,'Санаси йўқ':4,'Ҳақсиз таътил':5,'1С\'да бор':6,'Мос':7};
+  res.sort(function(a,b){return (ord[a.st]-ord[b.st])||String(a.name).localeCompare(String(b.name));});
+  res.period=(minD?minD.toLocaleDateString('ru-RU'):'')+' – '+(maxD?maxD.toLocaleDateString('ru-RU'):'');
+  res.nHr=rows.length;
+  return res;
+}
+function hrCompareRender(filter){
+  var box=document.getElementById('hrcmp-result'); if(!box||!_hrCmp) return;
+  var res=_hrCmp.res, cnt={};
+  res.forEach(function(r){cnt[r.st]=(cnt[r.st]||0)+1;});
+  var col={'Программада йўқ':'b-red','Фарқли':'b-amber','HR файлида йўқ':'b-purple','Мос':'b-green','1С\'да бор':'b-blue','Ҳақсиз таътил':'b-gray'};
+  var chips=Object.keys(cnt).map(function(k){
+    return '<span class="badge '+(col[k]||'b-gray')+'" style="cursor:pointer;'+(filter===k?'outline:2px solid #1a56db':'')+'" onclick="hrCompareRender(\''+k+'\')">'+k+': '+cnt[k]+'</span>';
+  }).join(' ')+(filter?' <span class="badge b-gray" style="cursor:pointer" onclick="hrCompareRender(\'\')">Барчаси</span>':'');
+  var list=filter?res.filter(function(r){return r.st===filter;}):res;
+  box.style.display='block';
+  box.innerHTML='<div class="stitle">'+_esc(_hrCmp.file)+': '+res.nHr+' та HR вазифаси ('+res.period+')</div>'+
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">'+chips+'</div>'+
+    '<div style="font-size:11px;color:#64748b;margin-bottom:10px">«1С\'да бор» — программада йўқ, лекин 1С (Taatil spravka) да бор: тўланган, расчетда автоматик айирилади. '+
+    '«HR файлида йўқ» — программадаги ҳужжат HR файлида топилмади (файл олинган санадан кейин киритилган буйруқлар ҳам шу ерда чиқиши мумкин).</div>'+
+    '<div style="max-height:480px;overflow:auto"><table style="font-size:11px"><thead><tr><th>Ҳолат</th><th>Тур</th><th>ФИО</th><th>Корхона</th><th>HR</th><th>Программа</th><th>Изоҳ</th></tr></thead><tbody>'+
+    list.map(function(r){return '<tr><td><span class="badge '+(col[r.st]||'b-gray')+'">'+_esc(r.st)+'</span></td><td>'+_esc(r.type)+'</td><td>'+_esc(r.name)+'</td><td>'+_esc(r.korxona)+'</td><td style="white-space:nowrap">'+_esc(r.hr)+'</td><td>'+_esc(r.prog)+'</td><td>'+_esc(r.note)+'</td></tr>';}).join('')+
+    '</tbody></table></div>'+
+    '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-outline btn-sm" onclick="hrCompareExport()"><i class="ti ti-download"></i>Excel\'га юклаб олиш</button>'+
+    (_hrCmp.rows&&!_hrCmp.saved?'<button class="btn btn-success btn-sm" onclick="hrTasksSave()" title="Расчетда «HR\'да бор, программада йўқ» таътилларни кўрсатиш учун"><i class="ti ti-device-floppy"></i>HR вазифаларини базага сақлаш</button>':'')+
+    (_hrCmp.saved?'<span style="font-size:12px;color:#16a34a;align-self:center"><i class="ti ti-check"></i> Базага сақланди</span>':'')+'</div>'+
+    '<div style="font-size:11px;color:#64748b;margin-top:6px">'+hrTasksStatus()+'</div>';
+}
+// Базадаги HR вазифалари ҳақида қисқа маълумот
+function hrTasksStatus(){
+  var t=DB.hrTasks||[]; if(!t.length) return 'Базада HR вазифалари йўқ.';
+  var ds=t.map(function(x){return x.s;}).filter(Boolean).sort(), up=t.map(function(x){return x.up||'';}).sort().pop();
+  return 'Базада '+t.length+' та HR вазифаси сақланган ('+fD(ds[0])+' – '+fD(ds[ds.length-1])+(up?', охирги юклаш '+fD(up):'')+').';
+}
+// HR вазифаларини базага сақлаш: файл қамраган даврдаги эски ёзувлар янгиси билан алмаштирилади
+function hrTasksSave(){
+  if(!_hrCmp||!_hrCmp.rows) return;
+  var rows=_hrCmp.rows.filter(function(r){return r.type&&r.s;});
+  if(!rows.length){ alert('Сақлаш учун вазифа йўқ'); return; }
+  var ds=rows.map(function(r){return r.s;}).sort(), lo=ds[0], hi=ds[ds.length-1], today=toISODate(new Date().toLocaleDateString('ru-RU'));
+  var old=(DB.hrTasks||[]).filter(function(x){return !(x.s>=lo&&x.s<=hi);});
+  if(!confirm('HR вазифалари базага сақлансинми?\n\nФайлда: '+rows.length+' та ('+fD(lo)+' – '+fD(hi)+')\nБазадаги шу даврдаги '+((DB.hrTasks||[]).length-old.length)+' та эски ёзув янгиси билан алмаштирилади, бошқа даврдаги '+old.length+' таси сақланиб қолади.')) return;
+  DB.hrTasks=old.concat(rows.map(function(r){return {type:r.type, name:r.name, pinfl:r.pinfl, korxona:r.korxona, s:r.s, e:r.e, cd:r.cd, wd:r.wd, buyruq:r.buyruq, sub:r.sub||'', up:today};}));
+  saveDB();
+  _hrCmp.saved=true; hrCompareRender('');
+}
+// Базадаги HR вазифаларини программа билан қайта солиштириш
+function hrCompareSaved(){
+  var t=DB.hrTasks||[]; if(!t.length){ alert('Базада HR вазифалари йўқ — аввал HR файлини юкланг ва сақланг.'); return; }
+  _hrCmp={file:'Базадаги HR вазифалари', rows:null, res:hrCompareRun(t.map(function(x){return {type:x.type, rawType:x.type, name:x.name, pinfl:x.pinfl, buyruq:x.buyruq, korxona:x.korxona, s:x.s, e:x.e, cd:x.cd, wd:x.wd, sub:x.sub};})), saved:false};
+  hrCompareRender('');
+}
+function hrCompareExport(){
+  if(!_hrCmp) return;
+  var aoa=[['Ҳолат','Тур','ФИО','Корхона','HR (саналар, кал./иш кун)','Программа','Изоҳ']];
+  _hrCmp.res.forEach(function(r){aoa.push([r.st,r.type,r.name,r.korxona,r.hr,r.prog,r.note]);});
+  var wb=XLSX.utils.book_new(), ws=XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols']=[{wch:16},{wch:10},{wch:38},{wch:28},{wch:34},{wch:44},{wch:60}];
+  XLSX.utils.book_append_sheet(wb, ws, 'Солиштириш');
+  XLSX.writeFile(wb, 'HR_солиштириш_'+new Date().toISOString().slice(0,10)+'.xlsx');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3433,6 +3876,15 @@ function autoCalcCompensationDays(){
   if(DF.type!=='Расчет' || !DF.taatilInfo) return;
   var sv=document.getElementById('d-start'); if(!sv||!sv.value) return;
   var termDate=parseDate(sv.value);
+  // v10: аввал олинган таътиллар бўшаш санасигача қайта йиғилади (кейинги таътиллар саналмайди)
+  var bE=DB.employees[DF.empIdx], bB=(bE&&termDate)?compensationBaseFor(bE, DF.compIdx, termDate):null;
+  var prevEl0=document.getElementById('d-prev-vac');
+  if(bB){
+    DF.taatilInfo.startDate=bB.startDate; DF.taatilInfo.avvalOlingan=bB.avvalOlingan; DF.taatilInfo.items=bB.items; DF.taatilInfo.warns=bB.warns;
+    if(prevEl0&&!DF.prevManual) prevEl0.value=bB.avvalOlingan;
+  }
+  var lstEl=document.getElementById('d-prev-vac-list');
+  if(lstEl) lstEl.innerHTML=bB?priorVacHtml(bB, DF.prevManual&&prevEl0?prevEl0.value:null):'';
   var stintStart=parseDate(DF.taatilInfo.startDate);
   if(!termDate||!stintStart) return;
   var exEl=document.getElementById('d-excl');
