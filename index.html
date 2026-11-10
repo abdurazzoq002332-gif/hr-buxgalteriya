@@ -1038,21 +1038,25 @@ function docMatchesQuery(d,q){
 // Белгилаш катагини босиб сичқончани тортганда йўлдаги барча қаторлар белгиланади
 function enableDragSelect(wrapId, sel, onChange){
   var wrap=document.getElementById(wrapId); if(!wrap||wrap._dragSel) return; wrap._dragSel=true;
-  var on=false, val=false, last=null;
+  var on=false, val=false, last=null, L=[], orig=[], anchor=-1, cur=-1;
   function list(){ return [].slice.call(wrap.querySelectorAll(sel)); }
-  function setRange(a,b){ var l=list(), i=l.indexOf(a), j=l.indexOf(b); if(i<0||j<0){ b.checked=val; return; }
-    for(var k=Math.min(i,j);k<=Math.max(i,j);k++) l[k].checked=val; }
+  // таянч (anchor) билан j оралиғи — val; қолганлари тортишдан олдинги ҳолатига қайтади
+  function apply(j){ var a=Math.min(anchor,j), b=Math.max(anchor,j);
+    for(var k=0;k<L.length;k++) L[k].checked=(k>=a&&k<=b)?val:orig[k]; }
   wrap.addEventListener('mousedown',function(e){
     if(e.button!==0||!e.target.matches||!e.target.matches(sel)) return;
     e.preventDefault();
     var c=e.target; val=!c.checked;
-    if(e.shiftKey&&last&&last.isConnected) setRange(last,c); else c.checked=val;
+    L=list(); orig=L.map(function(x){return x.checked;});
+    var i=L.indexOf(c), p=(e.shiftKey&&last&&last.isConnected)?L.indexOf(last):-1;
+    anchor=p>=0?p:i; cur=i; apply(i);
     last=c; on=true; onChange();
   });
   wrap.addEventListener('mouseover',function(e){
     if(!on) return;
-    var tr=e.target.closest&&e.target.closest('tr'); var c=tr&&tr.querySelector(sel); if(!c||c===last) return;
-    setRange(last&&last.isConnected?last:c,c); last=c; onChange();
+    var tr=e.target.closest&&e.target.closest('tr'); var c=tr&&tr.querySelector(sel); if(!c) return;
+    var j=L.indexOf(c); if(j<0||j===cur) return;
+    cur=j; apply(j); last=c; onChange();
   });
   document.addEventListener('mouseup',function(){ on=false; });
   wrap.addEventListener('click',function(e){
