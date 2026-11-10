@@ -28,6 +28,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e
 #page-documents>.docs-tb{position:sticky;top:-20px;z-index:6;background:#f1f5f9;margin-top:-20px;padding:20px 0 10px}
 #page-documents>.card{overflow:visible}
 #docs-wrap thead th{position:sticky;top:var(--dtb,0px);z-index:5}
+/* v13: Тўлов реестри — жадвал сарлавҳаси фильтр остида қотиб туради */
+#page-report>#rep-wrap{overflow:visible}
+#rep-wrap thead th{position:sticky;top:var(--rtb,0px);z-index:5}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid transparent;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;font-family:inherit}
@@ -2541,7 +2544,13 @@ var _repDocs=[]; // Joriy ko'rsatilgan hujjatlar
 document.addEventListener('DOMContentLoaded',function(){ enableDragSelect('rep-wrap','.rep-chk',repSelChanged); enableDragSelect('docs-wrap','.doc-chk',updateDocSelCount); });
 setTimeout(function(){ enableDragSelect('rep-wrap','.rep-chk',repSelChanged); enableDragSelect('docs-wrap','.doc-chk',updateDocSelCount); },0);
 
+function setRepStickyOffset(){
+  var f=document.getElementById('rep-filter');
+  if(f&&f.offsetHeight) document.documentElement.style.setProperty('--rtb',Math.max(0,f.offsetHeight-20)+'px');
+}
+if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('resize',setRepStickyOffset);
 function buildReport(){
+  setTimeout(setRepStickyOffset,0);
   var mt=document.getElementById('rf-month').value;
   var tp=document.getElementById('rf-type').value;
   var rq=document.getElementById('rf-q')?.value||'';
