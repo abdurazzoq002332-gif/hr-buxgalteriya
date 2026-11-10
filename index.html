@@ -998,6 +998,14 @@ function normalizeMonthKey(v){
   if(!isNaN(d.getTime()))return d.getFullYear()+'-'+(d.getMonth()+1);
   return s;
 }
+// v11: ҳужжатлар санаси бўйича кетма-кет (эски сана — биринчи)
+function sortDocsByDate(list){
+  return (list||[]).slice().sort(function(a,b){
+    return String(a.startDate||'').localeCompare(String(b.startDate||''))
+      || String(a.createdAt||'').localeCompare(String(b.createdAt||''))
+      || ((+a.id||0)-(+b.id||0));
+  });
+}
 function docMatchesQuery(d,q){
   q=String(q||'').toLowerCase().trim(); if(!q) return true;
   var hay=(String(d.fish||'')+' '+String(d.company||'')).toLowerCase();
@@ -2333,7 +2341,7 @@ function toggleAllDocs(checked){
 function selectedDocIds(){ return [...document.querySelectorAll('.doc-chk:checked')].map(function(c){ return parseInt(c.value); }); }
 function exportSelectedDocs(){
   var ids=selectedDocIds(); if(!ids.length) return;
-  var docs=DB.documents.filter(function(d){ return ids.includes(d.id); });
+  var docs=sortDocsByDate(DB.documents.filter(function(d){ return ids.includes(d.id); }));
   exportXlsx(docs);
 }
 
@@ -2369,7 +2377,7 @@ function renderDocs(){
   var tf=document.getElementById('df-type')?.value||'';
   var mf=document.getElementById('df-month')?.value||'';
   var dq=document.getElementById('df-q')?.value||'';
-  var docs=DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf)&&docMatchesQuery(d,dq));
+  var docs=sortDocsByDate(DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf)&&docMatchesQuery(d,dq)));
   updateDocSelCount();
   var el=document.getElementById('docs-wrap');
   if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-file-off"></i>Ҳужжат йўқ</div>';return;}
@@ -2489,7 +2497,7 @@ function buildReport(){
   var mt=document.getElementById('rf-month').value;
   var tp=document.getElementById('rf-type').value;
   var rq=document.getElementById('rf-q')?.value||'';
-  var docs=DB.documents.filter(d=>(!mt||d.month===mt)&&(!tp||d.type===tp)&&docMatchesQuery(d,rq));
+  var docs=sortDocsByDate(DB.documents.filter(d=>(!mt||d.month===mt)&&(!tp||d.type===tp)&&docMatchesQuery(d,rq)));
   _repDocs=docs;
   var el=document.getElementById('rep-wrap');
   if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-table"></i>Маълумот топилмади</div>';repSelChanged();return;}
@@ -2563,7 +2571,7 @@ function exportXlsx(docsOverride){
     docs=[];
     checked.forEach(function(c){var idx=parseInt(c.value);if(_repDocs[idx])docs.push(_repDocs[idx]);});
   } else {
-    docs=_repDocs.length?_repDocs:DB.documents;
+    docs=_repDocs.length?_repDocs:sortDocsByDate(DB.documents);
   }
   if(!docs.length)return alert('Маълумот йўқ. Аввал "Кўрсатиш" ни босинг.');
 
