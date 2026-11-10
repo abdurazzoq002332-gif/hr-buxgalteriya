@@ -24,6 +24,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#f1f5f9;color:#1e
 .topbar h1{font-size:15px;font-weight:600}
 .content{flex:1;overflow-y:auto;padding:20px 24px}
 .page{display:none}.page.active{display:block}
+/* v12: Ҳужжатлар — фильтр қатори ва жадвал сарлавҳаси қотиб туради */
+#page-documents>.docs-tb{position:sticky;top:-20px;z-index:6;background:#f1f5f9;margin-top:-20px;padding:20px 0 10px}
+#page-documents>.card{overflow:visible}
+#docs-wrap thead th{position:sticky;top:var(--dtb,0px);z-index:5}
 
 /* Buttons */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:1px solid transparent;cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;font-family:inherit}
@@ -239,8 +243,9 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
 
 <!-- DOCUMENTS -->
 <div class="page" id="page-documents">
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+  <div class="docs-tb" style="display:flex;gap:8px;margin-bottom:4px;flex-wrap:wrap;align-items:center">
     <select class="fc" style="width:150px" id="df-type" onchange="renderDocs()"><option value="">Барча турлар</option><option>Таътил</option><option>Расчет</option><option>Больничный</option></select>
+    <select class="fc" style="width:170px" id="df-period" title="Қайси даврдаги ҳужжатлар кўринсин" onchange="_docsPeriodTouched=true;renderDocs()"><option value="1">Охирги 1 ой</option><option value="2">Охирги 2 ой</option><option value="3">Охирги 3 ой</option><option value="6">Охирги 6 ой</option><option value="0">Барча даврлар</option></select>
     <select class="fc" style="width:190px" id="df-month" onchange="renderDocs()"><option value="">Барча ойлар</option></select>
     <input class="fc" style="width:240px" id="df-q" placeholder="🔍 Корхона ёки ФИШ бўйича қидириш" oninput="renderDocs()">
     <button class="btn btn-outline btn-sm" id="btn-exp-sel-docs" onclick="exportSelectedDocs()" disabled style="opacity:.5"><i class="ti ti-download"></i>Танланганларни юклаш</button>
@@ -248,6 +253,7 @@ tfoot td{background:#fef3c7;font-weight:700;color:#92400e;padding:9px 10px}
     <button class="btn btn-outline btn-sm" onclick="delAllDocs()" title="Барча ҳужжатларни ўчириш" style="color:#dc2626;border-color:#fca5a5"><i class="ti ti-circle-x"></i>Барчасини ўчириш</button>
     <button class="btn btn-outline btn-sm" style="margin-left:auto" onclick="openBulkImport()"><i class="ti ti-file-import"></i>Excel'дан импорт</button>
     <button class="btn btn-primary btn-sm" onclick="openNewDoc()"><i class="ti ti-plus"></i>Янги ҳужжат</button>
+    <div id="docs-info" style="flex-basis:100%;font-size:12px;color:#64748b"></div>
   </div>
   <div class="card"><div id="docs-wrap"><div class="empty"><i class="ti ti-file-off"></i>Ҳужжат йўқ</div></div></div>
 </div>
@@ -660,7 +666,7 @@ function escapeHtml(t){ return String(t).replace(/[&<>"']/g,function(c){return {
 // ====== Умумий база (Supabase) ======
 var Store=(function(){
   var readOnly=false, ready=false, timer=null, running=false, again=false, dirty=false, warned=false;
-  var DS=['employees','tabel','taatilSpravka','hrTasks'], LIMIT=190000, enc=new TextEncoder();
+  var DS=['employees','tabel','taatilSpravka','hrTasks','appSettings'], LIMIT=190000, enc=new TextEncoder();
   var base={}, docBase={}, docVer=null;
   function token(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,8); }
   function setState(t,cls){ var e=document.getElementById('sync-state'); if(e){ e.textContent=t; e.className=cls||''; } }
@@ -828,7 +834,7 @@ async function renderComments(id){
 var _auditRows=[];
 var AU_ICON={'киритди':'#16a34a','яратди':'#16a34a','ўзгартирди':'#1a56db','ўчирди':'#dc2626','изоҳ ёзди':'#7c3aed','изоҳни ўчирди':'#dc2626','рухсат берди':'#0891b2','рухсатни ўзгартирди':'#0891b2','рухсатни олди':'#dc2626','маълумотни янгилади':'#64748b'};
 function auAct(a){ return a==='яратди'?'киритди':a; }
-var DS_LBL={employees:'Ходимлар', tabel:'Табел тарихи', taatilSpravka:'Taatil spravka', hrTasks:'HR вазифалари'};
+var DS_LBL={employees:'Ходимлар', tabel:'Табел тарихи', taatilSpravka:'Taatil spravka', hrTasks:'HR вазифалари', appSettings:'Созламалар'};
 async function renderAudit(){
   var w=document.getElementById('audit-wrap'); if(!w) return;
   if(ME.role!=='owner'){ w.textContent='Бу бўлим фақат эга учун.'; return; }
@@ -885,12 +891,18 @@ async function renderAccess(){
     '<div class="fg"><label class="fl" for="ac-role">Ҳуқуқ</label><select class="fc" id="ac-role">'+opts('viewer')+'</select></div>'+
     '<div class="fg"><button class="btn btn-primary" id="ac-add">Қўшиш</button></div></div>'+
     '<table><thead><tr><th>Gmail</th><th>Исм</th><th>Ҳуқуқ</th><th></th></tr></thead><tbody id="ac-rows"></tbody></table>'+
-    '<div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0"><div class="stitle">Созламалар (фақат сизга)</div>'+
-    '<div class="fg" style="max-width:360px"><label class="fl" for="ac-cmode">Ҳужжатлар рўйхатида "Киритилди" устуни</label><select class="fc" id="ac-cmode">'+
-    '<option value="hidden">Кўрсатилмасин</option><option value="date">Сана (кун, ой, йил)</option><option value="datetime">Сана ва вақт (соат:дақиқа)</option></select></div></div>'+
+    '<div style="margin-top:18px;padding-top:14px;border-top:1px solid #e2e8f0"><div class="stitle">Созламалар</div>'+
+    '<div class="fr c2" style="gap:14px">'+
+    '<div class="fg" style="max-width:360px"><label class="fl" for="ac-docsm">Ҳужжатлар бўлимида асосий экранда кўринадиган давр (барча фойдаланувчилар учун)</label><select class="fc" id="ac-docsm">'+
+    '<option value="1">Охирги 1 ой</option><option value="2">Охирги 2 ой</option><option value="3">Охирги 3 ой</option><option value="6">Охирги 6 ой</option><option value="0">Барча даврлар</option></select>'+
+    '<div id="ac-docsm-st" style="font-size:11px;color:#94a3b8;margin-top:4px">Бошқа ойларни ҳар ким «Давр» ёки «Барча ойлар» орқали очиб кўра олади.</div></div>'+
+    '<div class="fg" style="max-width:360px"><label class="fl" for="ac-cmode">Ҳужжатлар рўйхатида "Киритилди" устуни (фақат сизга)</label><select class="fc" id="ac-cmode">'+
+    '<option value="hidden">Кўрсатилмасин</option><option value="date">Сана (кун, ой, йил)</option><option value="datetime">Сана ва вақт (соат:дақиқа)</option></select></div></div></div>'+
     '<div style="margin-top:18px;padding:14px;border:1px solid #fecaca;border-radius:10px;background:#fffafa"><div class="stitle" style="color:#b91c1c">Маълумотни ўчириш (Ҳаракатлар журнали сақланади)</div><div id="danger-zone"></div></div>';
   renderDangerZone(document.getElementById('danger-zone'));
   var cm=document.getElementById('ac-cmode'); cm.value=lsGet('hr_created_mode')||'date'; cm.onchange=function(){ lsSet('hr_created_mode',cm.value); };
+  var dm=document.getElementById('ac-docsm'); dm.value=String(appSetting('docsMonths',2));
+  dm.onchange=function(){ setAppSetting('docsMonths', parseInt(dm.value,10)||0); _docsPeriodTouched=false; var st=document.getElementById('ac-docsm-st'); if(st) st.innerHTML='<span style="color:#16a34a">✓ Сақланди: '+dm.options[dm.selectedIndex].text+'</span>'; };
   var tb=document.getElementById('ac-rows');
   rows.forEach(function(r){
     var tr=document.createElement('tr');
@@ -917,6 +929,15 @@ async function renderAccess(){
 var DB = {"employees":[],"documents":[],"tabel":[],"taatilSpravka":[]};
 if(!Array.isArray(DB.taatilSpravka)) DB.taatilSpravka=[];
 if(!Array.isArray(DB.hrTasks)) DB.hrTasks=[];
+if(!Array.isArray(DB.appSettings)) DB.appSettings=[];
+// v12: умумий созламалар ([{k,v}]) — сервер версиясида барча фойдаланувчилар учун битта
+function appSetting(k,def){ var r=(DB.appSettings||[]).find(function(x){return x&&x.k===k;}); return r?r.v:def; }
+function setAppSetting(k,v){
+  if(!Array.isArray(DB.appSettings)) DB.appSettings=[];
+  var r=DB.appSettings.find(function(x){return x&&x.k===k;});
+  if(r) r.v=v; else DB.appSettings.push({k:k,v:v});
+  saveDB();
+}
 
 // Сақлаш: серверга (Supabase) юборилади
 function saveDB(){
@@ -2327,7 +2348,8 @@ function downloadBulkTemplate(){
 
 // ====== DOCUMENTS ======
 function fillDocMonths(){
-  var ms=[...new Set(DB.documents.map(d=>d.month))].filter(Boolean);
+  var mx={}; DB.documents.forEach(function(d){ if(d.month){ var v=String(d.startDate||''); if(!(d.month in mx)||v>mx[d.month]) mx[d.month]=v; } });
+  var ms=Object.keys(mx).sort(function(a,b){return mx[b].localeCompare(mx[a]);});
   var s=document.getElementById('df-month');var cv=s.value;
   s.innerHTML='<option value="">Барча ойлар</option>'+ms.map(m=>'<option>'+m+'</option>').join('');
   if(cv)s.value=cv;
@@ -2373,14 +2395,40 @@ function delAllDocs(){
   renderDocs();
 }
 
+var _docsPeriodTouched=false;
+// Охирги n ойнинг биринчи куни (ISO), n=0 — чеклов йўқ
+function docsPeriodFrom(n){
+  if(!(n>0)) return '';
+  var t=new Date(), d=new Date(t.getFullYear(), t.getMonth()-(n-1), 1);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';
+}
+function setDocsStickyOffset(){
+  var tb=document.querySelector('#page-documents>.docs-tb');
+  if(tb&&tb.offsetHeight) document.documentElement.style.setProperty('--dtb',Math.max(0,tb.offsetHeight-20)+'px');
+}
+if(typeof window!=='undefined'&&window.addEventListener) window.addEventListener('resize',setDocsStickyOffset);
 function renderDocs(){
   var tf=document.getElementById('df-type')?.value||'';
   var mf=document.getElementById('df-month')?.value||'';
   var dq=document.getElementById('df-q')?.value||'';
-  var docs=sortDocsByDate(DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf)&&docMatchesQuery(d,dq)));
+  var ps=document.getElementById('df-period');
+  if(ps&&!_docsPeriodTouched){ var dv=String(appSetting('docsMonths',2)); if([].some.call(ps.options,function(o){return o.value===dv;})) ps.value=dv; }
+  var pn=ps?parseInt(ps.value,10)||0:0;
+  // Аниқ ой ёки қидирув — барча даврлар бўйича
+  var from=(mf||String(dq).trim())?'':docsPeriodFrom(pn);
+  var all=DB.documents.filter(d=>(!tf||d.type===tf)&&(!mf||d.month===mf)&&docMatchesQuery(d,dq));
+  var docs=sortDocsByDate(from?all.filter(function(d){return String(d.startDate||'')>=from;}):all);
+  var info=document.getElementById('docs-info');
+  if(info){
+    var hid=all.length-docs.length;
+    info.innerHTML=from?('<b>'+(ps.options[ps.selectedIndex]||{}).text+'</b> ('+fD(from)+' дан): '+docs.length+' та ҳужжат кўрсатилмоқда'+
+      (hid>0?', олдинги ойлардаги яна <b>'+hid+'</b> таси яширилган — <a href="#" onclick="var p=document.getElementById(\'df-period\');p.value=\'0\';_docsPeriodTouched=true;renderDocs();return false">барчасини кўрсатиш</a>':'')+'.')
+      :('Барча даврлар'+(mf||String(dq).trim()?' (ой ёки қидирув бўйича)':'')+': '+docs.length+' та ҳужжат.');
+  }
+  setTimeout(setDocsStickyOffset,0);
   updateDocSelCount();
   var el=document.getElementById('docs-wrap');
-  if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-file-off"></i>Ҳужжат йўқ</div>';return;}
+  if(!docs.length){el.innerHTML='<div class="empty"><i class="ti ti-file-off"></i>'+(from&&all.length?'Шу даврда ҳужжат йўқ — «Давр»дан бошқасини танланг':'Ҳужжат йўқ')+'</div>';fillDocMonths();return;}
   var cMode=DOC_HOOKS.createdMode(), showAuthor=docs.some(function(d){return !!DOC_HOOKS.author(d);});
   el.innerHTML='<table><thead><tr>'+
     '<th style="width:36px"><input type="checkbox" id="chk-all-docs" onchange="toggleAllDocs(this.checked)" title="Барчасини белгилаш"></th>'+
